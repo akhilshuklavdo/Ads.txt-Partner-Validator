@@ -1,0 +1,5 @@
+{
+  "name": "Ads.txt Partner Validator",
+  "description": "A professional tool to manage demand partners and verify their ads.txt lines across websites with primary and secondary line detection.",
+  "requestFramePermissions": []
+}
