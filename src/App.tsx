@@ -14,34 +14,9 @@ import {
   Info
 } from 'lucide-react';
 import { Partner, AnalysisResult, AnalysisStatus } from './types';
+import DEFAULT_PARTNERS from './partners.json';
 
 const STORAGE_KEY = 'ads_txt_partners';
-
-const DEFAULT_PARTNERS: Partner[] = [
-  {
-    id: '1',
-    name: 'Google AdSense',
-    lines: [
-      'google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0',
-      'google.com, pub-1111111111111111, RESELLER, f08c47fec0942fa0'
-    ]
-  },
-  {
-    id: '2',
-    name: 'AppNexus',
-    lines: [
-      'appnexus.com, 1234, DIRECT, f5a2276020c3c7fc',
-      'appnexus.com, 5678, RESELLER, f5a2276020c3c7fc'
-    ]
-  },
-  {
-    id: '3',
-    name: 'Rubicon Project',
-    lines: [
-      'rubiconproject.com, 1001, DIRECT, 0bfd66d529664ca6'
-    ]
-  }
-];
 
 export default function App() {
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -76,7 +51,7 @@ export default function App() {
     if (!name || lines.length === 0) return;
 
     const newPartner: Partner = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
       name,
       lines
     };
