@@ -5,16 +5,19 @@ import {
   Trash2, 
   CheckCircle2, 
   AlertCircle, 
-  XCircle, 
-  Search, 
-  Settings, 
+  X,
+  XCircle,
+  Search,
+  Settings,
   FileText,
   ExternalLink,
   ChevronRight,
   ChevronDown,
   ChevronUp,
   Info,
-  CircleDot
+  CircleDot,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Partner, AnalysisResult, AnalysisStatus } from './types';
 import DEFAULT_PARTNERS from './partners.json';
@@ -27,6 +30,7 @@ export default function App() {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [adsTxtContent, setAdsTxtContent] = useState('');
   const [results, setResults] = useState<AnalysisResult[]>([]);
+  const [selectedResult, setSelectedResult] = useState<AnalysisResult | null>(null);
 
   // Sorted list of partners for management
   const sortedPartners = useMemo(() => {
@@ -239,6 +243,7 @@ export default function App() {
                           color="text-accent-green"
                           borderColor="border-accent-green/20"
                           icon={<CheckCircle2 size={16} />}
+                          onRowClick={setSelectedResult}
                         />
                         <ResultSection 
                           title="Only Primary Line Present" 
@@ -246,6 +251,7 @@ export default function App() {
                           color="text-accent-amber"
                           borderColor="border-accent-amber/20"
                           icon={<AlertCircle size={16} />}
+                          onRowClick={setSelectedResult}
                         />
                          <ResultSection 
                           title="Any Line Present" 
@@ -253,6 +259,7 @@ export default function App() {
                           color="text-blue-500"
                           borderColor="border-blue-500/20"
                           icon={<CircleDot size={16} />}
+                          onRowClick={setSelectedResult}
                         />
                         <ResultSection 
                           title="Not Present" 
@@ -260,12 +267,22 @@ export default function App() {
                           color="text-accent-rose"
                           borderColor="border-accent-rose/20"
                           icon={<XCircle size={16} />}
+                          onRowClick={setSelectedResult}
                         />
                       </div>
                     </div>
                   )}
                 </div>
               </section>
+
+              <AnimatePresence>
+                {selectedResult && (
+                  <DetailModal 
+                    result={selectedResult} 
+                    onClose={() => setSelectedResult(null)} 
+                  />
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : (
             <motion.div 
@@ -295,7 +312,14 @@ export default function App() {
   );
 }
 
-const ResultSection: React.FC<{ title: string, results: AnalysisResult[], color: string, borderColor: string, icon: ReactNode }> = ({ title, results, color, borderColor, icon }) => {
+const ResultSection: React.FC<{ 
+  title: string, 
+  results: AnalysisResult[], 
+  color: string, 
+  borderColor: string, 
+  icon: ReactNode,
+  onRowClick: (res: AnalysisResult) => void 
+}> = ({ title, results, color, borderColor, icon, onRowClick }) => {
   if (results.length === 0) return null;
 
   return (
@@ -314,25 +338,36 @@ const ResultSection: React.FC<{ title: string, results: AnalysisResult[], color:
           <span className="col-header text-right">Status</span>
         </div>
         {results.map((res, idx) => (
-          <ResultRow key={res.partner.id} result={res} color={color} isLast={idx === results.length - 1} />
+          <ResultRow 
+            key={res.partner.id} 
+            result={res} 
+            color={color} 
+            isLast={idx === results.length - 1} 
+            onClick={() => onRowClick(res)}
+          />
         ))}
       </div>
     </div>
   );
 };
 
-const ResultRow: React.FC<{ result: AnalysisResult, color: string, isLast: boolean }> = ({ result, color, isLast }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
+const ResultRow: React.FC<{ 
+  result: AnalysisResult, 
+  color: string, 
+  isLast: boolean,
+  onClick: () => void 
+}> = ({ result, color, isLast, onClick }) => {
   return (
     <div className={`${!isLast ? 'border-b border-line/5' : ''}`}>
       <div 
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={onClick}
         className="data-row grid-cols-[1.5fr_2fr_1fr] py-3 px-4 group cursor-pointer hover:bg-ink/5"
       >
         <div className="flex items-center gap-2">
-          {isExpanded ? <ChevronUp size={12} className="opacity-40" /> : <ChevronDown size={12} className="opacity-40" />}
-          <span className="font-medium text-sm group-hover:underline transition-all underline-offset-2">{result.partner.name}</span>
+          <span className="font-medium text-sm group-hover:underline transition-all underline-offset-2 flex items-center gap-2">
+            {result.partner.name}
+            <ExternalLink size={10} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+          </span>
         </div>
         <span className="data-value truncate opacity-70 font-mono text-[11px]" title={result.partner.lines[0]}>
           {result.partner.lines[0]}
@@ -353,52 +388,142 @@ const ResultRow: React.FC<{ result: AnalysisResult, color: string, isLast: boole
           </span>
         </div>
       </div>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-bg/20"
-          >
-            <div className="p-4 border-t border-line/5 space-y-4">
-              {/* Found Lines */}
-              <div className="space-y-2">
-                <p className="col-header flex items-center gap-1.5"><CheckCircle2 size={10} className="text-accent-green" /> Found Lines ({result.foundLines.length})</p>
-                <div className="grid gap-1">
-                  {result.foundLines.length > 0 ? result.foundLines.map((line, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-white/50 p-2 rounded-sm border border-line/5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent-green/50 shrink-0"></span>
-                      <code className="text-[10px] font-mono opacity-80 break-all">{line}</code>
-                    </div>
-                  )) : (
-                    <p className="text-[10px] opacity-40 italic px-4">No lines found.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Missing Lines */}
-              <div className="space-y-2">
-                <p className="col-header flex items-center gap-1.5"><XCircle size={10} className="text-accent-rose" /> Missing Lines ({result.missingLines.length})</p>
-                <div className="grid gap-1">
-                  {result.missingLines.length > 0 ? result.missingLines.map((line, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-accent-rose/5 p-2 rounded-sm border border-accent-rose/10">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent-rose/50 shrink-0"></span>
-                      <code className="text-[10px] font-mono opacity-80 break-all">{line}</code>
-                    </div>
-                  )) : (
-                    <p className="text-[10px] opacity-40 italic px-4">All lines verified.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
-}
+};
+
+const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = ({ result, onClose }) => {
+  const [copiedFound, setCopiedFound] = useState(false);
+  const [copiedMissing, setCopiedMissing] = useState(false);
+
+  const copyLines = async (lines: string[], setCopied: (v: boolean) => void) => {
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:p-10">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+      />
+      
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="relative bg-bg w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-line/10 rounded-sm overflow-hidden"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-line/10 flex justify-between items-center bg-white">
+          <div>
+            <h2 className="font-bold text-xl tracking-tight uppercase flex items-center gap-2">
+              {result.partner.name}
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                result.status === 'all' ? 'border-accent-green text-accent-green bg-accent-green/5' :
+                result.status === 'partial' ? 'border-accent-amber text-accent-amber bg-accent-amber/5' :
+                result.status === 'any_secondary' ? 'border-blue-500 text-blue-500 bg-blue-500/5' :
+                'border-accent-rose text-accent-rose bg-accent-rose/5'
+              }`}>
+                {result.status.replace('_', ' ')}
+              </span>
+            </h2>
+            <p className="col-header mt-1">Detailed ads.txt line analysis</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-line/5 rounded-full transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="grid md:grid-cols-2 gap-8 h-full">
+            {/* Column 1: Found Lines */}
+            <div className="flex flex-col gap-3 min-h-[300px]">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-accent-green font-mono text-xs font-bold uppercase tracking-widest">
+                  <CheckCircle2 size={16} />
+                  Present Lines ({result.foundLines.length})
+                </div>
+                <button 
+                  onClick={() => copyLines(result.foundLines, setCopiedFound)}
+                  disabled={result.foundLines.length === 0}
+                  className="flex items-center gap-1.5 px-2 py-1 bg-white border border-line/10 rounded-sm font-mono text-[10px] uppercase tracking-tighter hover:bg-line/5 transition-all active:scale-95 disabled:opacity-30"
+                >
+                  {copiedFound ? <Check size={12} className="text-accent-green" /> : <Copy size={12} />}
+                  {copiedFound ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <div className="flex-1 bg-white border border-line/5 p-4 overflow-auto rounded-sm group relative">
+                {result.foundLines.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {result.foundLines.map((line, i) => (
+                      <div key={i} className="flex gap-2 font-mono text-[11px] leading-relaxed break-all p-1.5 border-b border-line/5 last:border-0 hover:bg-bg/50 transition-colors">
+                        <span className="text-accent-green/40 mt-0.5">•</span>
+                        <code className="opacity-80">{line}</code>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-2">
+                    <AlertCircle size={24} strokeWidth={1.5} />
+                    <p className="font-serif italic text-xs uppercase tracking-widest">No matching lines detected</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Column 2: Missing Lines */}
+            <div className="flex flex-col gap-3 min-h-[300px]">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-accent-rose font-mono text-xs font-bold uppercase tracking-widest">
+                  <XCircle size={16} />
+                  Absent Lines ({result.missingLines.length})
+                </div>
+                <button 
+                  onClick={() => copyLines(result.missingLines, setCopiedMissing)}
+                  disabled={result.missingLines.length === 0}
+                  className="flex items-center gap-1.5 px-2 py-1 bg-white border border-line/10 rounded-sm font-mono text-[10px] uppercase tracking-tighter hover:bg-line/5 transition-all active:scale-95 disabled:opacity-30"
+                >
+                  {copiedMissing ? <Check size={12} className="text-accent-green" /> : <Copy size={12} />}
+                  {copiedMissing ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <div className="flex-1 bg-accent-rose/5 border border-accent-rose/10 p-4 overflow-auto rounded-sm">
+                {result.missingLines.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {result.missingLines.map((line, i) => (
+                      <div key={i} className="flex gap-2 font-mono text-[11px] leading-relaxed break-all p-1.5 border-b border-accent-rose/10 last:border-0 hover:bg-accent-rose/10 transition-colors text-accent-rose">
+                        <span className="opacity-40 mt-0.5">•</span>
+                        <code className="opacity-90">{line}</code>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-2 text-accent-green">
+                    <CheckCircle2 size={24} strokeWidth={1.5} />
+                    <p className="font-serif italic text-xs uppercase tracking-widest">All configured lines verified</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const PartnerManager: React.FC<{ partners: Partner[], onAdd: (name: string, lines: string) => void, onDelete: (id: string) => void }> = ({ partners, onAdd, onDelete }) => {
   const [name, setName] = useState('');
