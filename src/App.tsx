@@ -17,7 +17,9 @@ import {
   Info,
   CircleDot,
   Copy,
-  Check
+  Check,
+  Download,
+  Pencil
 } from 'lucide-react';
 import { Partner, AnalysisResult, AnalysisStatus } from './types';
 import DEFAULT_PARTNERS from './partners.json';
@@ -114,6 +116,31 @@ export default function App() {
     });
 
     setResults(analysis);
+  };
+
+  const handleUpdatePartner = (id: string, name: string, linesStr: string) => {
+    const lines = linesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (!name || lines.length === 0) return;
+
+    setPartners(partners.map(p => p.id === id ? { ...p, name, lines } : p));
+  };
+
+  const downloadAllMissingLines = () => {
+    const allMissingLines = results.flatMap(r => r.missingLines);
+    if (allMissingLines.length === 0) return;
+
+    // Use a Set to remove duplicates if multiple partners have the same missing line
+    const uniqueMissingLines = Array.from(new Set(allMissingLines));
+    
+    const blob = new Blob([uniqueMissingLines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'all_missing_ads_txt_lines.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const categorizedResults = useMemo(() => {
@@ -270,6 +297,22 @@ export default function App() {
                           onRowClick={setSelectedResult}
                         />
                       </div>
+
+                      {/* Download All Missing Lines Button */}
+                      {results.some(r => r.missingLines.length > 0) && (
+                        <div className="pt-4 flex justify-center">
+                          <button 
+                            onClick={downloadAllMissingLines}
+                            className="flex items-center gap-2 px-6 py-3 bg-ink text-bg font-mono text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-md active:scale-95"
+                          >
+                            <Download size={16} />
+                            Download All Missing Lines
+                            <span className="ml-2 bg-white/20 px-1.5 py-0.5 rounded text-[10px]">
+                              {Array.from(new Set(results.flatMap(r => r.missingLines))).length}
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -296,6 +339,7 @@ export default function App() {
                 partners={sortedPartners} 
                 onAdd={handleAddPartner} 
                 onDelete={handleDeletePartner} 
+                onUpdate={handleUpdatePartner}
               />
             </motion.div>
           )}
@@ -525,27 +569,57 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
   );
 };
 
-const PartnerManager: React.FC<{ partners: Partner[], onAdd: (name: string, lines: string) => void, onDelete: (id: string) => void }> = ({ partners, onAdd, onDelete }) => {
+const PartnerManager: React.FC<{ 
+  partners: Partner[], 
+  onAdd: (name: string, lines: string) => void, 
+  onDelete: (id: string) => void,
+  onUpdate: (id: string, name: string, lines: string) => void
+}> = ({ partners, onAdd, onDelete, onUpdate }) => {
   const [name, setName] = useState('');
   const [lines, setLines] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onAdd(name, lines);
+    if (editingId) {
+      onUpdate(editingId, name, lines);
+      setEditingId(null);
+    } else {
+      onAdd(name, lines);
+    }
+    setName('');
+    setLines('');
+  };
+
+  const startEdit = (partner: Partner) => {
+    setEditingId(partner.id);
+    setName(partner.name);
+    setLines(partner.lines.join('\n'));
+    // Optionally scroll to form
+    const formElement = document.getElementById('partner-form');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
     setName('');
     setLines('');
   };
 
   return (
-    <div className="grid lg:grid-cols-3 gap-8">
+    <div className="grid lg:grid-cols-3 gap-10">
       <div className="lg:col-span-1 space-y-6">
-        <div className="bg-white border border-line/20 p-6 space-y-6 shadow-sm">
+        <div id="partner-form" className="bg-white border border-line/20 p-6 space-y-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="font-mono text-sm font-bold uppercase tracking-widest">Add New Partner</h2>
+            <h2 className="font-mono text-sm font-bold uppercase tracking-widest">
+              {editingId ? 'Edit Partner' : 'Add New Partner'}
+            </h2>
             <Settings size={16} className="opacity-30" />
           </div>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label className="col-header block">Partner Name</label>
               <input 
@@ -570,10 +644,21 @@ const PartnerManager: React.FC<{ partners: Partner[], onAdd: (name: string, line
               />
             </div>
 
-            <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
-              <Plus size={16} />
-              Save Partner
-            </button>
+            <div className="flex flex-col gap-2">
+              <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
+                {editingId ? <Check size={16} /> : <Plus size={16} />}
+                {editingId ? 'Update Partner' : 'Save Partner'}
+              </button>
+              {editingId && (
+                <button 
+                  type="button" 
+                  onClick={cancelEdit}
+                  className="w-full py-3 font-mono text-[10px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
@@ -598,19 +683,28 @@ const PartnerManager: React.FC<{ partners: Partner[], onAdd: (name: string, line
 
         <div className="grid gap-4">
           {partners.map(partner => (
-            <div key={partner.id} className="bg-white border border-line/10 p-5 group hover:border-line/30 transition-all shadow-sm">
+            <div key={partner.id} className={`bg-white border p-5 group transition-all shadow-sm ${editingId === partner.id ? 'border-ink ring-1 ring-ink' : 'border-line/10 hover:border-line/30'}`}>
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="font-bold text-lg tracking-tight underline-offset-4 decoration-line/20">{partner.name}</h3>
                   <p className="col-header">{partner.lines.length} total lines configured</p>
                 </div>
-                <button 
-                  onClick={() => onDelete(partner.id)}
-                  className="text-accent-rose opacity-0 group-hover:opacity-100 p-2 hover:bg-accent-rose/10 transition-all rounded-sm"
-                  title="Delete Partner"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => startEdit(partner)}
+                    className="p-2 hover:bg-ink/5 transition-all rounded-sm text-ink/40 hover:text-ink"
+                    title="Edit Partner"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                  <button 
+                    onClick={() => onDelete(partner.id)}
+                    className="text-accent-rose p-2 hover:bg-accent-rose/10 transition-all rounded-sm opacity-40 hover:opacity-100"
+                    title="Delete Partner"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -637,4 +731,4 @@ const PartnerManager: React.FC<{ partners: Partner[], onAdd: (name: string, line
       </div>
     </div>
   );
-}
+};
