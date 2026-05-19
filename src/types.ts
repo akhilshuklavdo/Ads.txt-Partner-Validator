@@ -4,7 +4,7 @@ export interface Partner {
   lines: string[]; // First line is primary
 }
 
-export type AnalysisStatus = 'all' | 'partial' | 'none';
+export type AnalysisStatus = 'all' | 'partial' | 'any_secondary' | 'none';
 
 export interface AnalysisResult {
   partner: Partner;
