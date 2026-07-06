@@ -1,16 +1,5 @@
 [
-    {
-        "id": "561c33bc-d044-4adc-9ea9-8012df71692f",
-        "name": "Aceex",
-        "lines": [
-            "aceex.io,2475, DIRECT, b1cf3c874d5c6682",
-            "smilewanted.com, 5935, RESELLER",
-            "appnexus.com, 10040, RESELLER",
-            "openx.com, 557083110, RESELLER, 6a698e2ec38604c6",
-            "rubiconproject.com, 19814, RESELLER, 0bfd66d529a55807"
-        ]
-    },
-    {
+        {
         "id": "84e6c3e8-a29c-46fe-8fd5-fda86b63c459",
         "name": "adagio",
         "lines": [
@@ -42,50 +31,6 @@
             "rubiconproject.com, 26800, RESELLER, 0bfd66d529a55807",
             "insticator.com, 4ec3ed85-2830-4174-9f7f-f545620598b9, RESELLER, b3511ffcafb23a32",
             "sharethrough.com, Q9IzHdvp, RESELLER, d53b998a7bd4ecd2"
-        ]
-    },
-    {
-        "id": "ad5c922e-8d92-470e-92c8-2b40728dfd8d",
-        "name": "Adengine",
-        "lines": [
-            "adklip.net, 68297, RESELLER",
-            "iion.io, 10290, RESELLER",
-            "sonobi.com, 22d19b6952, RESELLER, d1a215d9eb5aee9e",
-            "appnexus.com, 14538, RESELLER, f5ab79cb980f11d1",
-            "adform.com, 2985, RESELLER, 9f5210a2f0999e32",
-            "video.unrulymedia.com, 346830101, RESELLER, 29bc7d05d309e1bc",
-            "loopme.com, 11594, RESELLER, 6c8d5f95897a5a3b",
-            "improvedigital.com, 2226, RESELLER",
-            "rubiconproject.com, 25322, RESELLER, 0bfd66d529a55807",
-            "pubmatic.com, 164778, RESELLER, 5d62403b186f2ace",
-            "smartadserver.com, 4618, RESELLER, 060d053dcf45cbf3",
-            "onetag.com, 89dd525077ba15e, RESELLER",
-            "media.net, 8CU8564R6, RESELLER",
-            "sharethrough.com, 249198ac, RESELLER, d53b998a7bd4ecd2",
-            "smilewanted.com, 5098, RESELLER",
-            "richaudience.com, 6InWSNO0Xo, RESELLER",
-            "rubiconproject.com, 13510, RESELLER",
-            "pubmatic.com, 81564, RESELLER, 5d62403b186f2ace",
-            "insticator.com, f01725e4-53f4-40e0-95bb-c4206ee0b577, RESELLER, b3511ffcafb23a32",
-            "adyoulike.com, c614fe3fe0114cbf1f9d7d878e6e7ee7, RESELLER",
-            "smaato.com, 1100057454, RESELLER, 07bcf65f187117b4",
-            "inmobi.com, 77f768cb1be84ffaa296c61ffd61a314, RESELLER, 83e75a7ae333ca9d",
-            "loopme.com, 9724, RESELLER, 6c8d5f95897a5a3b",
-            "rubiconproject.com, 11726, RESELLER, 0bfd66d529a55807",
-            "admanmedia.com, 2160, RESELLER",
-            "minutemedia.com, 01j6arbm5tne, RESELLER",
-            "cpmstar.com, 54333, RESELLER, 1b929e6459dfc260",
-            "rubiconproject.com, 23330, RESELLER, 0bfd66d529a55807",
-            "appnexus.com, 9624, RESELLER, f5ab79cb980f11d1",
-            "openx.com, 541079309, RESELLER, 6a698e2ec38604c6",
-            "toponad.com, 168119612ada3d, RESELLER, 1d49fe424a1a456d",
-            "eskimi.com, 2020001133, RESELLER",
-            "lijit.com, 270673, RESELLER, fafdf38b16bf6b2b",
-            "richaudience.com, 1Y3nHOLEwB, RESELLER",
-            "appnexus.com, 8233, RESELLER",
-            "pubmatic.com, 81564, RESELLER, 5d62403b186f2ace",
-            "pubmatic.com, 156538, RESELLER, 5d62403b186f2ace",
-            "rubiconproject.com, 13510, RESELLER"
         ]
     },
     {
@@ -146,58 +91,6 @@
             "rubiconproject.com, 17130, RESELLER, 0bfd66d529a55807",
             "triplelift.com, 11883, RESELLER, 6c33edb13117fd86",
             "beachfront.com, 15312, DIRECT, e2541279e8e2ca4d"
-        ]
-    },
-    {
-        "id": "05c763ea-c1e9-4020-95fa-fbd29652a666",
-        "name": "Adpone",
-        "lines": [
-            "adpone.com, d694ee9efcd2b047344b, DIRECT",
-            "lijit.com,  257429,  Reseller,  fafdf38b16bf6b2b",
-            "betweendigital.com,  42666,  reseller",
-            "smartadserver.com, 3820, RESELLER",
-            "outbrain.com, 00f98002a95195662efb6f40c5311a76ff, reseller",
-            "telaria.com, cpu32-92xut, RESELLER, 1a4e959a1b50034a",
-            "lijit.com, 277115, reseller, fafdf38b16bf6b2b",
-            "onetag.com, 59817ac704fe3e8, reseller",
-            "sharethrough.com, QWxGEL6s, reseller, d53b998a7bd4ecd2",
-            "indexexchange.com, 192450, reseller, 50b1c356f2c5c8fc",
-            "adform.com, 2474, reseller, 9f5210a2f0999e32",
-            "lijit.com, 249425, RESELLER",
-            "richaudience.com, quxufDBTNs, DIRECT",
-            "appnexus.com, 7597, RESELLER, f5ab79cb980f11d1",
-            "smilewanted.com, 4258, RESELLER",
-            "triplelift.com, 12911, RESELLER, 6c33edb13117fd86",
-            "appnexus.com, 1199, RESELLER, f5ab79cb980f11d1",
-            "rubiconproject.com, 13510, reseller",
-            "pubmatic.com, 156538, reseller, 5d62403b186f2ace",
-            "pubmatic.com, 81564, reseller, 5d62403b186f2ace",
-            "appnexus.com,  8233,  reseller",
-            "adform.com, 1942, reseller",
-            "smartadserver.com, 1999, RESELLER",
-            "indexexchange.com, 192051, reseller",
-            "triplelift.com, 8683, reseller, 6c33edb13117fd86",
-            "adform.com, 2631, reseller, 9f5210a2f0999e32",
-            "rubiconproject.com, 22328, RESELLER, 0bfd66d529a55807",
-            "pubmatic.com, 156136, RESELLER, 5d62403b186f2ace",
-            "tremorhub.com, cpu32-92xut, RESELLER, 1a4e959a1b50034a",
-            "google.com, pub-8221793852898543, RESELLER, f08c47fec0942fa0",
-            "sunmedia.tv, 455be357-ad46-4f10-8872-701656980003, DIRECT, 24794F6",
-            "improvedigital.com, 2048, RESELLER",
-            "pubmatic.com, 160006, RESELLER, 5d62403b186f2ace",
-            "aps.amazon.com, 93aec77c-f6d2-45bd-affc-a85ab5a72683, reseller",
-            "pubmatic.com, 157841, reseller, 5d62403b186f2ace",
-            "pubmatic.com, 156383, reseller, 5d62403b186f2ace",
-            "rubiconproject.com, 16114, RESELLER, 0bfd66d529a55807",
-            "pubmatic.com, 156439, RESELLER, 5d62403b186f2ace",
-            "smartadserver.com, 1743, RESELLER, 060d053dcf45cbf3",
-            "themediagrid.com, VIY354, reseller, 35d5010d7789b49d",
-            "criteo.com, B-060278, reseller, 9fac4a4a87c2a44f",
-            "indexexchange.com, 196713, reseller, 50b1c356f2c5c8fc",
-            "appnexus.com, 10264, RESELLER, f5ab79cb980f11d1",
-            "rubiconproject.com, 20266, RESELLER, 0bfd66d529a55807",
-            "rubiconproject.com, 17210, RESELLER, 0bfd66d529a55807",
-            "google.com, pub-2128757167812663, reseller, f08c47fec0942fa0"
         ]
     },
     {
@@ -272,42 +165,6 @@
         ]
     },
     {
-        "id": "052f8ae6-5aea-4ca2-afd0-397168f26de4",
-        "name": "ADWMG",
-        "lines": [
-            "adwmg.com, 100213, DIRECT, c9688a22012618e7",
-            "google.com, pub-8622186303703569, DIRECT, f08c47fec0942fa0",
-            "google.com, pub-8309773808661346, RESELLER, f08c47fec0942fa0"
-        ]
-    },
-    {
-        "id": "5e687d44-7f1e-4ef4-a592-be57ed8a5574",
-        "name": "AMX RTBDemand",
-        "lines": [
-            "rtbdemand.com, 23110629672, RESELLER",
-            "amxrtb.com, 2166, DIRECT",
-            "appnexus.com, 12290, RESELLER",
-            "appnexus.com, 3153, RESELLER, f5ab79cb980f11d1",
-            "indexexchange.com, 189775, RESELLER",
-            "indexexchange.com, 191503, RESELLER",
-            "smartadserver.com, 3056, RESELLER",
-            "pubmatic.com, 156439, RESELLER, 5d62403b186f2ace",
-            "pubmatic.com, 154037, RESELLER, 5d62403b186f2ace",
-            "rubiconproject.com, 16114, RESELLER, 0bfd66d529a55807",
-            "sovrn.com, 260380, RESELLER, fafdf38b16bf6b2b",
-            "lijit.com, 260380, RESELLER, fafdf38b16bf6b2b",
-            "openx.com, 538959099, RESELLER, 6a698e2ec38604c6",
-            "openx.com, 539924617, RESELLER, 6a698e2ec38604c6",
-            "pubmatic.com, 137711, RESELLER, 5d62403b186f2ace",
-            "pubmatic.com, 156212, RESELLER, 5d62403b186f2ace",
-            "pubmatic.com, 156700, RESELLER, 5d62403b186f2ace",
-            "rubiconproject.com, 17960, RESELLER, 0bfd66d529a55807",
-            "sonobi.com, 783272317b, RESELLER, d1a215d9eb5aee9e",
-            "aol.com, 49648, RESELLER, e1a5b5b6e3255540",
-            "rubiconproject.com, 13132, RESELLER, 0bfd66d529a55807"
-        ]
-    },
-    {
         "id": "b56eb67d-7991-4a4f-a072-b92ae197e283",
         "name": "Auxo Ads",
         "lines": [
@@ -342,30 +199,6 @@
             "biddo.net, bdc-4939, DIRECT",
             "invamia.com, ivm-4939, DIRECT",
             "vidverto.com, vdvt-4939, DIRECT"
-        ]
-    },
-    {
-        "id": "65f98fe9-dc8d-4720-b308-c94936df520e",
-        "name": "BCM",
-        "lines": [
-            "datacygnal.io, 151427, RESELLER",
-            "appnexus.com, 8610, RESELLER, f5ab79cb980f11d1",
-            "freewheel.tv, 1608546-524565, RESELLER",
-            "freewheel.tv, 534995-r-524565, RESELLER",
-            "freewheel.tv, 534995-r-523319, RESELLER",
-            "openx.com, 560609274, RESELLER, 6a698e2ec38604c6",
-            "rubiconproject.com, 23048, RESELLER, 0bfd66d529a55807",
-            "Media.net, 8CU436987, DIRECT",
-            "openx.com, 537100188, RESELLER, 6a698e2ec38604c6",
-            "pubmatic.com, 159463, RESELLER, 5d62403b186f2ace",
-            "rubiconproject.com, 19396, Reseller, 0bfd66d529a55807",
-            "loopme.com, 11498, RESELLER, 6c8d5f95897a5a3b",
-            "Contextweb.com,563079,RESELLER,89ff185a4c4e857c",
-            "sharethrough.com, koRtppYA, RESELLER, d53b998a7bd4ecd2",
-            "onetag.com, 5d49f482552c9b6, Reseller",
-            "smartadserver.com, 4839, RESELLER, 060d053dcf45cbf3",
-            "loopme.com,11498,RESELLER,6c8d5f95897a5a3b",
-            "rhebus.works,6206908708,RESELLER"
         ]
     },
     {
@@ -534,24 +367,6 @@
             "smartyads.com, 300045, RESELLER, fd2bde0ff2e62c5d",
             "video.unrulymedia.com, 645663965, RESELLER",
             "yahoo.com, 55771, RESELLER, e1a5b5b6e3255540"
-        ]
-    },
-    {
-        "id": "0be84b63-63d7-4695-8b7e-eba74f1dd608",
-        "name": "erelego",
-        "lines": [
-            "ergadx.com, 5013, DIRECT.",
-            "vidgyor.com, 20081, DIRECT",
-            "google.com, pub-8863191426564274, RESELLER, f08c47fec0942fa0",
-            "readwhere.digital, rd3998mzdpuuutbvbtpnetyussdekedgweqp65f9191568d69, DIRECT",
-            "RWADX.com, rwijhklnmbfretshbolsert9870fr, DIRECT",
-            "google.com, pub-6070398767421094, RESELLER, f08c47fec0942fa0",
-            "Adsolut.in, 15806, DIRECT",
-            "Playstream.media, 936, DIRECT",
-            "google.com, pub-4586415728471297, DIRECT, f08c47fec0942fa0",
-            "rtbdemand.com, 22637491760, DIRECT",
-            "google.com, pub-3872674820285626, RESELLER, f08c47fec0942fa0",
-            "google.com, pub-8131585741503195, DIRECT, f08c47fec0942fa0"
         ]
     },
     {
@@ -783,50 +598,6 @@
         ]
     },
     {
-        "id": "e0ae8e04-2767-44b5-ab33-c969f21d1ca6",
-        "name": "FatChilli Media",
-        "lines": [
-            "fatchillimedia.com, 23330913864, DIRECT",
-            "google.com, pub-2393320645055022, RESELLER, f08c47fec0942fa0",
-            "teads.tv, 27872, DIRECT, 15a9c44f6d26cbe1",
-            "Appnexus.com, 1371, RESELLER, f5ab79cb980f11d1",
-            "stroeer.com, 17580, DIRECT",
-            "adform.com, 2148, RESELLER, 9f5210a2f0999e32",
-            "rubiconproject.com, 22884, DIRECT, 0bfd66d529a55807",
-            "themediagrid.com, J8FXQA, DIRECT, 35d5010d7789b49d",
-            "sovrn.com, 372166, DIRECT, fafdf38b16bf6b2b",
-            "lijit.com, 372166, DIRECT, fafdf38b16bf6b2b",
-            "lijit.com, 372166-eb, DIRECT, fafdf38b16bf6b2b",
-            "contextweb.com, 560606, RESELLER, 89ff185a4c4e857c",
-            "triplelift.com, 12404, DIRECT, 6c33edb13117fd86",
-            "triplelift.com, 12404-EB, DIRECT, 6c33edb13117fd86",
-            "inmobi.com, 96b0c131516c4ce58d293ec158228a2f, DIRECT, 83e75a7ae333ca9d",
-            "opera.com,pub10667113792896,DIRECT,55a0c5fd61378de3",
-            "lijit.com,465542,RESELLER,fafdf38b16bf6b2b",
-            "vidoomy.com, 4930225, RESELLER",
-            "rubiconproject.com, 17608, RESELLER, 0bfd66d529a55807",
-            "improvedigital.com, 2276, RESELLER",
-            "outbrain.com,002d7f7ba0bd74452f2b155d0dfb5cd6c8, RESELLER",
-            "adingo.jp, 30932, RESELLER",
-            "contextweb.com, 558511, RESELLER, 89ff185a4c4e857c",
-            "google.com, pub-8200308882369976, DIRECT, f08c47fec0942fa0",
-            "google.com, pub-5874845881897380, DIRECT, f08c47fec0942fa0",
-            "triplelift.com, 12404, DIRECT, 6c33edb13117fd86",
-            "triplelift.com, 12404-EB, DIRECT, 6c33edb13117fd86",
-            "inmobi.com, 96b0c131516c4ce58d293ec158228a2f, DIRECT, 83e75a7ae333ca9d",
-            "opera.com,pub10667113792896,DIRECT,55a0c5fd61378de3",
-            "lijit.com,465542,RESELLER,fafdf38b16bf6b2b",
-            "vidoomy.com, 4930225, RESELLER",
-            "rubiconproject.com, 17608, RESELLER, 0bfd66d529a55807",
-            "improvedigital.com, 2276, RESELLER",
-            "outbrain.com,002d7f7ba0bd74452f2b155d0dfb5cd6c8, RESELLER",
-            "adingo.jp, 30932, RESELLER",
-            "contextweb.com, 558511, RESELLER, 89ff185a4c4e857c",
-            "google.com, pub-8200308882369976, DIRECT, f08c47fec0942fa0",
-            "google.com, pub-5874845881897380, DIRECT, f08c47fec0942fa0"
-        ]
-    },
-    {
         "id": "a58f879b-1121-4785-9431-fda490bef7fd",
         "name": "Germane Media",
         "lines": [
@@ -856,34 +627,6 @@
             "vidoomy.com, 8804284, RESELLER",
             "pubmatic.com, 156498, RESELLER, 5d62403b186f2ace",
             "rubiconproject.com, 26884, DIRECT, 0bfd66d529a55807"
-        ]
-    },
-    {
-        "id": "e53140b1-5afa-4f39-82e0-47ae27887c19",
-        "name": "Intellectscoop",
-        "lines": [
-            "intellectscoop.com, 509, DIRECT",
-            "playstream.media, 3080, RESELLER",
-            "google.com, pub-4586415728471297, RESELLER, f08c47fec0942fa0",
-            "google.com, pub-8584156348842922, RESELLER, f08c47fec0942fa0",
-            "whitemediasolutions.com, 9990, RESELLER",
-            "google.com, pub-6645287046856849, RESELLER, f08c47fec0942fa0",
-            "google.com, pub-3977122154505186, RESELLER, f08c47fec0942fa0",
-            "google.com, pub-1714061154748628, RESELLER, f08c47fec0942fa0",
-            "google.com, pub-8686615022940025, RESELLER, f08c47fec0942fa0",
-            "coolbootsmedia.com,11155, RESELLER",
-            "google.com, pub-5418289688863489, RESELLER, f08c47fec0942fa0",
-            "google.com , pub-5413329544040947, RESELLER, f08c47fec0942fa0",
-            "pubmatic.com, 156107, RESELLER, 5d62403b186f2ace #Display",
-            "auxoads.com, dbafc9824f4ecd213b02998c6c5e5003, RESELLER",
-            "biddigi.com, ADG269, RESELLER",
-            "rtbdemand.com, 23041948471, RESELLER",
-            "google.com, pub-3872674820285626, RESELLER, f08c47fec0942fa0",
-            "incrementx.com,60536, RESELLER, 8728b7e97e589da4",
-            "google.com, pub-3990748024667386, RESELLER, f08c47fec0942fa0",
-            "pubmatic.com, 161652, RESELLER, 5d62403b186f2ace",
-            "onetag.com, 774083553572acc, RESELLER",
-            "rubiconproject.com, 26884, RESELLER, 0bfd66d529a55807"
         ]
     },
     {
@@ -955,16 +698,8 @@
         "id": "6fe921f4-c97c-4daf-b460-e241695c1b8b",
         "name": "Magnite",
         "lines": [
-            "rubiconproject.com, 27408, DIRECT, 0bfd66d529a55807"
-        ]
-    },
-    {
-        "id": "4746d1b4-e7b0-4947-871d-9bc3c01de9d2",
-        "name": "Magnite RTBDemand",
-        "lines": [
-            "rtbdemand.com, 23110629672, DIRECT",
-            "google.com, pub-3872674820285626, RESELLER, f08c47fec0942fa0",
-            "rubiconproject.com, 26884, RESELLER, 0bfd66d529a55807"
+            "rubiconproject.com, 27408, DIRECT, 0bfd66d529a55807",
+            "rubiconproject.com, 27410, DIRECT, 0bfd66d529a55807"
         ]
     },
     {
@@ -1063,15 +798,6 @@
             "amxrtb.com, 105199912, DIRECT",
             "onetag.com, 941359b203449a0, DIRECT",
             "nativo.com, 6072, RESELLER, 59521ca7cc5e9fee"
-        ]
-    },
-    {
-        "id": "84a67fc3-562a-4d70-8a0a-e8126947a24e",
-        "name": "Monetizemore",
-        "lines": [
-            "monetizemore.com, dd695c8dde, DIRECT",
-            "google.com, pub-5278973888786334, reseller, f08c47fec0942fa0",
-            "google.com, pub-6190096338979886, reseller, f08c47fec0942fa0"
         ]
     },
     {
@@ -1261,14 +987,6 @@
         ]
     },
     {
-        "id": "d4d20dac-156b-494c-a4fb-ee91791b0e41",
-        "name": "Pubmatic (MB)",
-        "lines": [
-            "magicbid.ai, 12071990, DIRECT",
-            "pubmatic.com, 166273, RESELLER, 5d62403b186f2ace"
-        ]
-    },
-    {
         "id": "aa42353a-0b52-4ca6-966a-99531a2265e7",
         "name": "Risecodes",
         "lines": [
@@ -1316,14 +1034,6 @@
         ]
     },
     {
-        "id": "3bcf8eba-147c-4b71-a050-6f0870250002",
-        "name": "Scaralator",
-        "lines": [
-            "smartadline.com, 23325730296, DIRECT",
-            "google.com, pub-6804276076764268, RESELLER, f08c47fec0942fa0"
-        ]
-    },
-    {
         "id": "51224e3e-8151-466f-a420-ec64aa961791",
         "name": "Smile Wanted",
         "lines": [
@@ -1346,24 +1056,6 @@
             "admanmedia.com, 2281, RESELLER",
             "improvedigital.com, 1010, RESELLER",
             "amxrtb.com, 105199841, RESELLER"
-        ]
-    },
-    {
-        "id": "02fcd704-3ec8-460e-81d8-55c588539447",
-        "name": "Sovrn",
-        "lines": [
-            "lijit.com, 276595, DIRECT, fafdf38b16bf6b2b #SOVRN",
-            "lijit.com, 276595-eb, DIRECT, fafdf38b16bf6b2b #SOVRN",
-            "openx.com, 538959099, RESELLER, 6a698e2ec38604c6",
-            "pubmatic.com, 137711, RESELLER, 5d62403b186f2ace",
-            "pubmatic.com, 156212, RESELLER, 5d62403b186f2ace",
-            "rubiconproject.com, 17960, RESELLER, 0bfd66d529a55807",
-            "appnexus.com, 1019, RESELLER, f5ab79cb980f11d1",
-            "video.unrulymedia.com, 2444764291, RESELLER",
-            "krushmedia.com, AJxF6R572a9M6CaTvK, RESELLER",
-            "motorik.io, 100463, RESELLER",
-            "smaato.com, 1100056344, RESELLER, 07bcf65f187117b4",
-            "smartadserver.com, 4926, RESELLER, 060d053dcf45cbf3"
         ]
     },
     {
@@ -1406,7 +1098,7 @@
     },
     {
         "id": "f4e85794-b4ef-4ce3-a5b3-3e4bc7f7fe2c",
-        "name": "Streamlyn",
+        "name": "Streamlyn Media",
         "lines": [
             "tapmind.com, TMP10227, DIRECT",
             "google.com, pub-1714061154748628, RESELLER, f08c47fec0942fa0",
