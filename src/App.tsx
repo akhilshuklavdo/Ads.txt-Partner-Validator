@@ -277,22 +277,32 @@ export default function App() {
                     <div className="space-y-10">
                       {/* Summary Cards */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-white border-l-2 border-accent-green p-4 space-y-1 shadow-sm">
-                          <p className="col-header">All Present</p>
-                          <p className="text-2xl font-mono font-bold">{categorizedResults.all.length}</p>
-                        </div>
-                        <div className="bg-white border-l-2 border-accent-amber p-4 space-y-1 shadow-sm">
-                          <p className="col-header">Primary Only</p>
-                          <p className="text-2xl font-mono font-bold">{categorizedResults.partial.length}</p>
-                        </div>
-                        <div className="bg-white border-l-2 border-blue-500 p-4 space-y-1 shadow-sm">
-                          <p className="col-header">Any Segment</p>
-                          <p className="text-2xl font-mono font-bold">{categorizedResults.any.length}</p>
-                        </div>
-                        <div className="bg-white border-l-2 border-accent-rose p-4 space-y-1 shadow-sm">
-                          <p className="col-header">Not Present</p>
-                          <p className="text-2xl font-mono font-bold">{categorizedResults.none.length}</p>
-                        </div>
+                        <SummaryCard 
+                          label="All Present" 
+                          count={categorizedResults.all.length} 
+                          borderColor="border-accent-green" 
+                          partners={categorizedResults.all} 
+                        />
+                        <SummaryCard 
+                          label="Primary Present" 
+                          count={categorizedResults.partial.length} 
+                          borderColor="border-accent-amber" 
+                          partners={categorizedResults.partial} 
+                        />
+                        <SummaryCard 
+                          label="Any Segment" 
+                          count={categorizedResults.any.length} 
+                          borderColor="border-blue-500" 
+                          partners={categorizedResults.any} 
+                          alignRight={true}
+                        />
+                        <SummaryCard 
+                          label="Not Present" 
+                          count={categorizedResults.none.length} 
+                          borderColor="border-accent-rose" 
+                          partners={categorizedResults.none} 
+                          alignRight={true}
+                        />
                       </div>
 
                       {/* Detailed Results Table */}
@@ -388,6 +398,64 @@ export default function App() {
     </div>
   );
 }
+
+
+const SummaryCard: React.FC<{
+  label: string,
+  count: number,
+  borderColor: string,
+  partners: AnalysisResult[],
+  alignRight?: boolean
+}> = ({ label, count, borderColor, partners, alignRight }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const names = partners.map(p => p.partner.name).join('\n');
+    navigator.clipboard.writeText(names);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className={`relative group bg-white border-l-2 ${borderColor} p-4 space-y-1 shadow-sm cursor-help hover:border-r hover:border-y hover:border-line/20 hover:shadow-md transition-all`}>
+      <p className="col-header">{label}</p>
+      <p className="text-2xl font-mono font-bold">{count}</p>
+      
+      {/* Popover */}
+      <div className={`absolute top-full ${alignRight ? 'right-0' : 'left-0'} mt-2 w-72 bg-white border border-line/20 shadow-xl p-4 z-30 hidden group-hover:block pointer-events-auto text-left rounded-sm transition-all duration-150`}>
+        <div className="flex justify-between items-center pb-2 mb-2 border-b border-line/10">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-ink/60 font-bold">
+            {label} ({count})
+          </p>
+          {partners.length > 0 && (
+            <button 
+              onClick={handleCopy}
+              className="flex items-center gap-1 px-1.5 py-0.5 bg-ink/5 hover:bg-ink text-[9px] font-mono uppercase text-ink hover:text-bg transition-colors rounded-sm cursor-pointer"
+              title="Copy all names to clipboard"
+            >
+              {copied ? 'Copied!' : 'Copy List'}
+            </button>
+          )}
+        </div>
+        {partners.length === 0 ? (
+          <p className="text-xs text-ink/40 italic">No partners in this category</p>
+        ) : (
+          <div className="max-h-48 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+            {partners.map(r => (
+              <div 
+                key={r.partner.id} 
+                className="text-xs py-0.5 font-mono text-ink/80 hover:bg-ink/5 px-1 rounded-sm select-all break-words"
+              >
+                {r.partner.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ResultSection: React.FC<{ 
   title: string, 
