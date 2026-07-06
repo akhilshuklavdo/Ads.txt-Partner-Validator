@@ -77,28 +77,53 @@ export default function App() {
   };
 
   const analyzeAdsTxt = () => {
-    const inputLines = adsTxtContent
+    const rawInputLines = adsTxtContent
       .split('\n')
-      .map(l => l.trim().toLowerCase())
+      .map(l => l.trim())
       .filter(l => l && !l.startsWith('#'));
 
-    const analysis: AnalysisResult[] = partners.map(partner => {
-      const partnerLines = partner.lines.map(l => l.trim().toLowerCase());
-      const primaryLine = partnerLines[0];
-      const secondaryLines = partnerLines.slice(1);
+    const normalizeRelationType = (line: string): string => {
+      const withoutComment = line.split('#')[0].trim().toLowerCase();
+      const parts = withoutComment.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length >= 3) {
+        if (parts[2] === 'direct' || parts[2] === 'reseller') {
+          parts[2] = 'normalized_relation';
+        }
+      }
+      return parts.join(',');
+    };
 
-      const isLinePresent = (pLine: string) => {
-        const normalizedPLine = pLine.trim().toLowerCase();
-        return inputLines.some(iLine => {
-          // Robust matching: check if input line contains all parts of pLine (domain, id)
-          // For simplicity, we keep the previous logic but ensure trimmed compare
-          return iLine.includes(normalizedPLine) || normalizedPLine.includes(iLine);
+    const analysis: AnalysisResult[] = partners.map(partner => {
+      const primaryLine = partner.lines[0];
+      const secondaryLines = partner.lines.slice(1);
+
+      const findMatchingInputLine = (pLine: string): string | null => {
+        const normPLine = normalizeRelationType(pLine);
+        if (!normPLine) return null;
+        
+        const matched = rawInputLines.find(iLine => {
+          const normILine = normalizeRelationType(iLine);
+          return normILine === normPLine || normILine.includes(normPLine) || normPLine.includes(normILine);
         });
+        
+        return matched || null;
       };
 
-      const foundPrimary = isLinePresent(primaryLine);
-      const foundSecondary = secondaryLines.filter(l => isLinePresent(l));
-      const missingSecondary = secondaryLines.filter(l => !isLinePresent(l));
+      const matchedPrimary = findMatchingInputLine(primaryLine);
+      const foundPrimary = matchedPrimary !== null;
+
+      const secondaryMatches = secondaryLines.map(line => ({
+        configured: line,
+        matched: findMatchingInputLine(line)
+      }));
+
+      const foundSecondary = secondaryMatches
+        .filter(m => m.matched !== null)
+        .map(m => m.matched as string);
+
+      const missingSecondary = secondaryMatches
+        .filter(m => m.matched === null)
+        .map(m => m.configured);
 
       let status: AnalysisStatus = 'none';
       if (foundPrimary) {
@@ -107,11 +132,19 @@ export default function App() {
         status = 'any_secondary';
       }
 
+      const foundLines = foundPrimary 
+        ? [matchedPrimary as string, ...foundSecondary] 
+        : foundSecondary;
+
+      const missingLines = foundPrimary 
+        ? missingSecondary 
+        : [primaryLine, ...missingSecondary];
+
       return {
         partner,
         status,
-        foundLines: foundPrimary ? [partner.lines[0], ...foundSecondary] : foundSecondary.map(sl => partner.lines.find(pl => pl.toLowerCase().includes(sl)) || sl),
-        missingLines: foundPrimary ? missingSecondary.map(sl => partner.lines.find(pl => pl.toLowerCase().includes(sl)) || sl) : partner.lines.filter(l => !foundSecondary.some(sl => l.toLowerCase().includes(sl)))
+        foundLines,
+        missingLines
       };
     });
 
