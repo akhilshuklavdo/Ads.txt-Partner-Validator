@@ -21,7 +21,14 @@ import {
   Download,
   Pencil
 } from 'lucide-react';
-import { Partner, AnalysisResult, AnalysisStatus } from './types';
+import { 
+  Partner, 
+  AnalysisResult, 
+  AnalysisStatus,
+  getPartnerPrimaryLines,
+  getPartnerSecondaryLines,
+  getAllPartnerLines
+} from './types';
 import DEFAULT_PARTNERS from './partners.json';
 
 const STORAGE_KEY = 'ads_txt_partners';
@@ -60,20 +67,37 @@ export default function App() {
     }
   }, [partners]);
 
-  const handleAddPartner = (name: string, linesStr: string) => {
-    const lines = linesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!name || lines.length === 0) return;
+  const handleAddPartner = (name: string, primaryLinesStr: string, secondaryLinesStr: string) => {
+    const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const secondaryLines = secondaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (!name || (primaryLines.length === 0 && secondaryLines.length === 0)) return;
 
     const newPartner: Partner = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
       name,
-      lines
+      primaryLines,
+      secondaryLines,
+      lines: [...primaryLines, ...secondaryLines]
     };
     setPartners([...partners, newPartner]);
   };
 
   const handleDeletePartner = (id: string) => {
     setPartners(partners.filter(p => p.id !== id));
+  };
+
+  const handleUpdatePartner = (id: string, name: string, primaryLinesStr: string, secondaryLinesStr: string) => {
+    const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const secondaryLines = secondaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (!name || (primaryLines.length === 0 && secondaryLines.length === 0)) return;
+
+    setPartners(partners.map(p => p.id === id ? { 
+      ...p, 
+      name, 
+      primaryLines, 
+      secondaryLines, 
+      lines: [...primaryLines, ...secondaryLines] 
+    } : p));
   };
 
   const analyzeAdsTxt = () => {
@@ -94,8 +118,8 @@ export default function App() {
     };
 
     const analysis: AnalysisResult[] = partners.map(partner => {
-      const primaryLine = partner.lines[0];
-      const secondaryLines = partner.lines.slice(1);
+      const primaryLines = getPartnerPrimaryLines(partner);
+      const secondaryLines = getPartnerSecondaryLines(partner);
 
       const findMatchingInputLine = (pLine: string): string | null => {
         const normPLine = normalizeRelationType(pLine);
@@ -109,13 +133,23 @@ export default function App() {
         return matched || null;
       };
 
-      const matchedPrimary = findMatchingInputLine(primaryLine);
-      const foundPrimary = matchedPrimary !== null;
+      const primaryMatches = primaryLines.map(line => ({
+        configured: line,
+        matched: findMatchingInputLine(line)
+      }));
 
       const secondaryMatches = secondaryLines.map(line => ({
         configured: line,
         matched: findMatchingInputLine(line)
       }));
+
+      const foundPrimary = primaryMatches
+        .filter(m => m.matched !== null)
+        .map(m => m.matched as string);
+
+      const missingPrimary = primaryMatches
+        .filter(m => m.matched === null)
+        .map(m => m.configured);
 
       const foundSecondary = secondaryMatches
         .filter(m => m.matched !== null)
@@ -125,20 +159,19 @@ export default function App() {
         .filter(m => m.matched === null)
         .map(m => m.configured);
 
+      const allPrimaryFound = primaryLines.length > 0 && missingPrimary.length === 0;
+      const somePrimaryFound = foundPrimary.length > 0;
+      const someSecondaryFound = foundSecondary.length > 0;
+
       let status: AnalysisStatus = 'none';
-      if (foundPrimary) {
+      if (allPrimaryFound) {
         status = missingSecondary.length === 0 ? 'all' : 'partial';
-      } else if (foundSecondary.length > 0) {
+      } else if (somePrimaryFound || someSecondaryFound) {
         status = 'any_secondary';
       }
 
-      const foundLines = foundPrimary 
-        ? [matchedPrimary as string, ...foundSecondary] 
-        : foundSecondary;
-
-      const missingLines = foundPrimary 
-        ? missingSecondary 
-        : [primaryLine, ...missingSecondary];
+      const foundLines = [...foundPrimary, ...foundSecondary];
+      const missingLines = [...missingPrimary, ...missingSecondary];
 
       return {
         partner,
@@ -151,12 +184,6 @@ export default function App() {
     setResults(analysis);
   };
 
-  const handleUpdatePartner = (id: string, name: string, linesStr: string) => {
-    const lines = linesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!name || lines.length === 0) return;
-
-    setPartners(partners.map(p => p.id === id ? { ...p, name, lines } : p));
-  };
 
   const downloadAllMissingLines = () => {
     const allMissingLines = results.flatMap(r => r.missingLines);
@@ -390,9 +417,11 @@ export default function App() {
       </main>
 
       <footer className="border-t border-line p-6 bg-white/30 mt-auto">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
           <p className="col-header">Ads.txt Validator v1.1</p>
-          <p className="col-header">Built for Precision</p>
+          <p className="font-mono text-xs font-semibold text-ink/80 tracking-wide">
+            Designed and Developed by Akhil Shukla
+          </p>
         </div>
       </footer>
     </div>
@@ -479,7 +508,7 @@ const ResultSection: React.FC<{
       <div className={`bg-white border border-line/10 overflow-hidden shadow-sm`}>
         <div className="data-row grid-cols-[1.5fr_2fr_1fr] bg-ink/5 py-2 px-4 border-b border-line/5">
           <span className="col-header">Partner Name</span>
-          <span className="col-header">Primary Line</span>
+          <span className="col-header">Primary Line(s)</span>
           <span className="col-header text-right">Status</span>
         </div>
         {results.map((res, idx) => (
@@ -502,6 +531,13 @@ const ResultRow: React.FC<{
   isLast: boolean,
   onClick: () => void 
 }> = ({ result, color, isLast, onClick }) => {
+  const primaryLines = getPartnerPrimaryLines(result.partner);
+  const primaryDisplay = primaryLines.length > 0
+    ? primaryLines[0] + (primaryLines.length > 1 ? ` (+${primaryLines.length - 1} more primary)` : '')
+    : 'No primary lines configured';
+
+  const totalLines = getAllPartnerLines(result.partner).length;
+
   return (
     <div className={`${!isLast ? 'border-b border-line/5' : ''}`}>
       <div 
@@ -514,13 +550,13 @@ const ResultRow: React.FC<{
             <ExternalLink size={10} className="opacity-0 group-hover:opacity-40 transition-opacity" />
           </span>
         </div>
-        <span className="data-value truncate opacity-70 font-mono text-[11px]" title={result.partner.lines[0]}>
-          {result.partner.lines[0]}
+        <span className="data-value truncate opacity-70 font-mono text-[11px]" title={primaryLines.join('\n')}>
+          {primaryDisplay}
         </span>
         <div className="flex justify-end items-center gap-2">
           {result.status === 'partial' && (
             <span className="text-[10px] font-mono bg-accent-amber/10 text-accent-amber px-1.5 py-0.5 rounded-sm">
-              {result.partner.lines.length - result.foundLines.length} Missing
+              {result.missingLines.length} Missing
             </span>
           )}
           {result.status === 'any_secondary' && (
@@ -541,6 +577,9 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
   const [copiedFound, setCopiedFound] = useState(false);
   const [copiedMissing, setCopiedMissing] = useState(false);
 
+  const primaryLines = getPartnerPrimaryLines(result.partner);
+  const secondaryLines = getPartnerSecondaryLines(result.partner);
+
   const copyLines = async (lines: string[], setCopied: (v: boolean) => void) => {
     try {
       await navigator.clipboard.writeText(lines.join('\n'));
@@ -549,6 +588,12 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
+  };
+
+  const isPrimary = (line: string) => {
+    const norm = (s: string) => s.split('#')[0].trim().toLowerCase();
+    const targetNorm = norm(line);
+    return primaryLines.some(pl => norm(pl) === targetNorm || norm(pl).includes(targetNorm) || targetNorm.includes(norm(pl)));
   };
 
   return (
@@ -581,7 +626,7 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
                 {result.status.replace('_', ' ')}
               </span>
             </h2>
-            <p className="col-header mt-1">Detailed ads.txt line analysis</p>
+            <p className="col-header mt-1">Detailed ads.txt line analysis • {primaryLines.length} Primary line(s), {secondaryLines.length} Secondary line(s)</p>
           </div>
           <button 
             onClick={onClose}
@@ -613,12 +658,17 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
               <div className="flex-1 bg-white border border-line/5 p-4 overflow-auto rounded-sm group relative">
                 {result.foundLines.length > 0 ? (
                   <div className="space-y-1.5">
-                    {result.foundLines.map((line, i) => (
-                      <div key={i} className="flex gap-2 font-mono text-[11px] leading-relaxed break-all p-1.5 border-b border-line/5 last:border-0 hover:bg-bg/50 transition-colors">
-                        <span className="text-accent-green/40 mt-0.5">•</span>
-                        <code className="opacity-80">{line}</code>
-                      </div>
-                    ))}
+                    {result.foundLines.map((line, i) => {
+                      const primary = isPrimary(line);
+                      return (
+                        <div key={i} className="flex items-start gap-2 font-mono text-[11px] leading-relaxed break-all p-1.5 border-b border-line/5 last:border-0 hover:bg-bg/50 transition-colors">
+                          <span className={`text-[9px] font-mono uppercase px-1 py-0.5 rounded shrink-0 ${primary ? 'bg-ink text-bg' : 'bg-line/10 text-ink/60'}`}>
+                            {primary ? 'Primary' : 'Secondary'}
+                          </span>
+                          <code className="opacity-80">{line}</code>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-2">
@@ -648,12 +698,17 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
               <div className="flex-1 bg-accent-rose/5 border border-accent-rose/10 p-4 overflow-auto rounded-sm">
                 {result.missingLines.length > 0 ? (
                   <div className="space-y-1.5">
-                    {result.missingLines.map((line, i) => (
-                      <div key={i} className="flex gap-2 font-mono text-[11px] leading-relaxed break-all p-1.5 border-b border-accent-rose/10 last:border-0 hover:bg-accent-rose/10 transition-colors text-accent-rose">
-                        <span className="opacity-40 mt-0.5">•</span>
-                        <code className="opacity-90">{line}</code>
-                      </div>
-                    ))}
+                    {result.missingLines.map((line, i) => {
+                      const primary = isPrimary(line);
+                      return (
+                        <div key={i} className="flex items-start gap-2 font-mono text-[11px] leading-relaxed break-all p-1.5 border-b border-accent-rose/10 last:border-0 hover:bg-accent-rose/10 transition-colors text-accent-rose">
+                          <span className={`text-[9px] font-mono uppercase px-1 py-0.5 rounded shrink-0 ${primary ? 'bg-accent-rose text-white' : 'bg-accent-rose/20 text-accent-rose'}`}>
+                            {primary ? 'Primary' : 'Secondary'}
+                          </span>
+                          <code className="opacity-90">{line}</code>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-2 text-accent-green">
@@ -672,31 +727,35 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
 
 const PartnerManager: React.FC<{ 
   partners: Partner[], 
-  onAdd: (name: string, lines: string) => void, 
+  onAdd: (name: string, primaryLines: string, secondaryLines: string) => void, 
   onDelete: (id: string) => void,
-  onUpdate: (id: string, name: string, lines: string) => void
+  onUpdate: (id: string, name: string, primaryLines: string, secondaryLines: string) => void
 }> = ({ partners, onAdd, onDelete, onUpdate }) => {
   const [name, setName] = useState('');
-  const [lines, setLines] = useState('');
+  const [primaryLines, setPrimaryLines] = useState('');
+  const [secondaryLines, setSecondaryLines] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      onUpdate(editingId, name, lines);
+      onUpdate(editingId, name, primaryLines, secondaryLines);
       setEditingId(null);
     } else {
-      onAdd(name, lines);
+      onAdd(name, primaryLines, secondaryLines);
     }
     setName('');
-    setLines('');
+    setPrimaryLines('');
+    setSecondaryLines('');
   };
 
   const startEdit = (partner: Partner) => {
     setEditingId(partner.id);
     setName(partner.name);
-    setLines(partner.lines.join('\n'));
-    // Optionally scroll to form
+    const p = getPartnerPrimaryLines(partner);
+    const s = getPartnerSecondaryLines(partner);
+    setPrimaryLines(p.join('\n'));
+    setSecondaryLines(s.join('\n'));
     const formElement = document.getElementById('partner-form');
     if (formElement) {
       formElement.scrollIntoView({ behavior: 'smooth' });
@@ -706,7 +765,8 @@ const PartnerManager: React.FC<{
   const cancelEdit = () => {
     setEditingId(null);
     setName('');
-    setLines('');
+    setPrimaryLines('');
+    setSecondaryLines('');
   };
 
   return (
@@ -734,14 +794,25 @@ const PartnerManager: React.FC<{
             </div>
             
             <div className="space-y-2">
-              <label className="col-header block">Ads.txt Lines</label>
-              <p className="text-[10px] opacity-50 italic -mt-1">First line is considered the Primary Line.</p>
+              <label className="col-header block">Primary Line(s)</label>
+              <p className="text-[10px] opacity-50 italic -mt-1">Enter core/primary ads.txt lines (one per line). Supports multiple lines.</p>
               <textarea 
-                value={lines}
-                onChange={(e) => setLines(e.target.value)}
-                placeholder="domain.com, ID, TYPE, TAG"
-                className="w-full h-48 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
+                value={primaryLines}
+                onChange={(e) => setPrimaryLines(e.target.value)}
+                placeholder="domain.com, ID, DIRECT, TAG"
+                className="w-full h-32 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="col-header block">Secondary / Reseller Line(s) (Optional)</label>
+              <p className="text-[10px] opacity-50 italic -mt-1">Enter reseller or secondary ads.txt lines (one per line).</p>
+              <textarea 
+                value={secondaryLines}
+                onChange={(e) => setSecondaryLines(e.target.value)}
+                placeholder="domain.com, ID, RESELLER, TAG"
+                className="w-full h-32 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
               />
             </div>
 
@@ -769,8 +840,9 @@ const PartnerManager: React.FC<{
             <h3 className="font-mono text-[10px] uppercase tracking-widest font-bold">Guidelines</h3>
           </div>
           <ul className="space-y-3 text-xs opacity-80 font-light leading-relaxed">
-            <li>• The <strong>Primary Line</strong> is the first line you enter. Validation fails if this is missing.</li>
-            <li>• <strong>Any Line Present</strong> category shows partners where only secondary lines matched.</li>
+            <li>• Configure <strong>Primary Lines</strong> and <strong>Secondary Lines</strong> separately for each partner.</li>
+            <li>• A partner can have <strong>multiple Primary Lines</strong> if required.</li>
+            <li>• Full verification requires <strong>all Primary Lines</strong> and Secondary Lines to be present.</li>
             <li>• Comments starting with <code>#</code> are automatically ignored.</li>
             <li>• Data is stored locally in your browser.</li>
           </ul>
@@ -783,45 +855,63 @@ const PartnerManager: React.FC<{
         </div>
 
         <div className="grid gap-4">
-          {partners.map(partner => (
-            <div key={partner.id} className={`bg-white border p-5 group transition-all shadow-sm ${editingId === partner.id ? 'border-ink ring-1 ring-ink' : 'border-line/10 hover:border-line/30'}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-bold text-lg tracking-tight underline-offset-4 decoration-line/20">{partner.name}</h3>
-                  <p className="col-header">{partner.lines.length} total lines configured</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button 
-                    onClick={() => startEdit(partner)}
-                    className="p-2 hover:bg-ink/5 transition-all rounded-sm text-ink/40 hover:text-ink"
-                    title="Edit Partner"
-                  >
-                    <Pencil size={18} />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(partner.id)}
-                    className="text-accent-rose p-2 hover:bg-accent-rose/10 transition-all rounded-sm opacity-40 hover:opacity-100"
-                    title="Delete Partner"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
+          {partners.map(partner => {
+            const pList = getPartnerPrimaryLines(partner);
+            const sList = getPartnerSecondaryLines(partner);
+            const total = pList.length + sList.length;
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-mono uppercase bg-ink text-bg px-1.5 py-0.5 rounded-none">Primary</span>
-                  <code className="text-[10px] font-mono opacity-70 truncate">{partner.lines[0]}</code>
-                </div>
-                {partner.lines.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono uppercase bg-line/10 text-ink/50 px-1.5 py-0.5 rounded-none">Secondary</span>
-                    <code className="text-[10px] font-mono opacity-40 truncate">+{partner.lines.length - 1} more lines</code>
+            return (
+              <div key={partner.id} className={`bg-white border p-5 group transition-all shadow-sm ${editingId === partner.id ? 'border-ink ring-1 ring-ink' : 'border-line/10 hover:border-line/30'}`}>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-bold text-lg tracking-tight underline-offset-4 decoration-line/20">{partner.name}</h3>
+                    <p className="col-header">{pList.length} primary line(s), {sList.length} secondary line(s) configured ({total} total)</p>
                   </div>
-                )}
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => startEdit(partner)}
+                      className="p-2 hover:bg-ink/5 transition-all rounded-sm text-ink/40 hover:text-ink"
+                      title="Edit Partner"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(partner.id)}
+                      className="text-accent-rose p-2 hover:bg-accent-rose/10 transition-all rounded-sm opacity-40 hover:opacity-100"
+                      title="Delete Partner"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[9px] font-mono uppercase bg-ink text-bg px-1.5 py-0.5 rounded-none shrink-0 mt-0.5">Primary ({pList.length})</span>
+                    <div className="space-y-1 flex-1 overflow-hidden">
+                      {pList.map((l, idx) => (
+                        <code key={idx} className="text-[10px] font-mono opacity-80 block truncate">{l}</code>
+                      ))}
+                    </div>
+                  </div>
+
+                  {sList.length > 0 && (
+                    <div className="flex items-start gap-2 pt-1 border-t border-line/5">
+                      <span className="text-[9px] font-mono uppercase bg-line/10 text-ink/60 px-1.5 py-0.5 rounded-none shrink-0 mt-0.5">Secondary ({sList.length})</span>
+                      <div className="space-y-1 flex-1 overflow-hidden">
+                        {sList.slice(0, 3).map((l, idx) => (
+                          <code key={idx} className="text-[10px] font-mono opacity-50 block truncate">{l}</code>
+                        ))}
+                        {sList.length > 3 && (
+                          <p className="text-[10px] font-mono opacity-40 italic">+{sList.length - 3} more secondary lines</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           
           {partners.length === 0 && (
             <div className="text-center py-20 border border-dashed border-line/20 opacity-30 bg-white/50">
@@ -833,3 +923,4 @@ const PartnerManager: React.FC<{
     </div>
   );
 };
+
