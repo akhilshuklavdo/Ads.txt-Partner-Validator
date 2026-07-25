@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, ReactNode, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Analytics } from '@vercel/analytics/react';
 import { 
   Plus, 
   Trash2, 
@@ -1181,6 +1182,7 @@ const PartnerManager: React.FC<{
           )}
         </div>
       </div>
+      <Analytics />
     </div>
   );
 };
