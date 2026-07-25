@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, ReactNode, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { 
   Plus, 
@@ -1340,7 +1341,7 @@ const PartnerManager: React.FC<{
           )}
         </div>
       </div>
-      <SpeedInsights />
+      <Analytics />
     </div>
   );
 };
