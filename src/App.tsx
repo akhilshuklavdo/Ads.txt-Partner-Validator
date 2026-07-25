@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, ReactNode, FormEvent } from 'react';
+import React, { useState, useEffect, useMemo, useRef, ReactNode, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -19,19 +19,31 @@ import {
   Copy,
   Check,
   Download,
-  Pencil
+  Pencil,
+  History,
+  Clock,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 import { 
   Partner, 
   AnalysisResult, 
   AnalysisStatus,
+  HistoryItem,
   getPartnerPrimaryLines,
   getPartnerSecondaryLines,
   getAllPartnerLines
 } from './types';
 import DEFAULT_PARTNERS from './partners.json';
+import { 
+  subscribeToPartners, 
+  addPartnerInFirestore, 
+  updatePartnerInFirestore, 
+  deletePartnerFromFirestore,
+  resetPartnersToDefault 
+} from './lib/firebase';
 
-const STORAGE_KEY = 'ads_txt_partners';
+const HISTORY_STORAGE_KEY = 'ads_txt_history';
 
 export default function App() {
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -40,64 +52,183 @@ export default function App() {
   const [adsTxtContent, setAdsTxtContent] = useState('');
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<AnalysisResult | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [hoveredHistoryItem, setHoveredHistoryItem] = useState<{ item: HistoryItem; index: number; top: number } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+
+  // Helper to filter out history older than 24 hours and limit to max 10
+  const filterValidHistory = (items: HistoryItem[]): HistoryItem[] => {
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+    return items
+      .filter(item => item && typeof item.timestamp === 'number' && item.timestamp >= twentyFourHoursAgo)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10);
+  };
 
   // Sorted list of partners for management
   const sortedPartners = useMemo(() => {
     return [...partners].sort((a, b) => a.name.localeCompare(b.name));
   }, [partners]);
 
-  // Load partners from localStorage
+  // Real-time Firestore synchronization for partners
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    const unsubscribe = subscribeToPartners((updatedPartners) => {
+      setPartners(updatedPartners);
+    });
+
+    // Load local history
+    const savedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (savedHistory) {
       try {
-        setPartners(JSON.parse(saved));
+        const parsed: HistoryItem[] = JSON.parse(savedHistory);
+        const valid = filterValidHistory(parsed);
+        setHistory(valid);
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(valid));
       } catch (e) {
-        setPartners(DEFAULT_PARTNERS);
+        setHistory([]);
       }
-    } else {
-      setPartners(DEFAULT_PARTNERS);
     }
+
+    return () => unsubscribe();
   }, []);
 
-  // Save partners to localStorage
-  useEffect(() => {
-    if (partners.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(partners));
+  const handleDeleteHistoryItem = (id: string) => {
+    setHistory(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+  };
+
+  const handleRestoreHistoryItem = (item: HistoryItem) => {
+    setWebsiteUrl(item.websiteUrl || '');
+    setAdsTxtContent(item.adsTxtContent || '');
+    setResults(item.results || []);
+  };
+
+  const formatHistoryTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDomainOrName = (url: string) => {
+    if (!url || !url.trim()) return 'Direct Input';
+    try {
+      let cleaned = url.trim();
+      if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+        cleaned = 'https://' + cleaned;
+      }
+      const parsed = new URL(cleaned);
+      let hostname = parsed.hostname || url;
+      if (hostname.toLowerCase().startsWith('www.')) {
+        hostname = hostname.slice(4);
+      }
+      return hostname || url;
+    } catch {
+      let fallback = url.trim();
+      fallback = fallback.replace(/^https?:\/\//i, '');
+      fallback = fallback.replace(/^www\./i, '');
+      fallback = fallback.split('/')[0].split('?')[0].split('#')[0];
+      return fallback || url;
     }
-  }, [partners]);
-
-  const handleAddPartner = (name: string, primaryLinesStr: string, secondaryLinesStr: string) => {
-    const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    const secondaryLines = secondaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!name || (primaryLines.length === 0 && secondaryLines.length === 0)) return;
-
-    const newPartner: Partner = {
-      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
-      name,
-      primaryLines,
-      secondaryLines,
-      lines: [...primaryLines, ...secondaryLines]
-    };
-    setPartners([...partners, newPartner]);
   };
 
-  const handleDeletePartner = (id: string) => {
-    setPartners(partners.filter(p => p.id !== id));
+  const handleAddPartner = async (name: string, primaryLinesStr: string, allLinesStr: string) => {
+    const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const rawAllLines = allLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (!name || (primaryLines.length === 0 && rawAllLines.length === 0)) return;
+
+    // Combine and deduplicate primaryLines and allLines
+    const allLinesMap = new Map<string, string>();
+    [...primaryLines, ...rawAllLines].forEach(line => {
+      const key = line.trim().toLowerCase();
+      if (key && !allLinesMap.has(key)) {
+        allLinesMap.set(key, line.trim());
+      }
+    });
+    const mergedAllLines = Array.from(allLinesMap.values());
+
+    // Secondary lines are all lines minus primary lines
+    const primarySet = new Set(primaryLines.map(l => l.toLowerCase()));
+    const secondaryLines = mergedAllLines.filter(l => !primarySet.has(l.toLowerCase()));
+
+    try {
+      setIsSyncing(true);
+      await addPartnerInFirestore({
+        name,
+        primaryLines,
+        secondaryLines,
+        lines: mergedAllLines
+      });
+    } catch (err) {
+      console.error('Failed to add partner to Firestore:', err);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
-  const handleUpdatePartner = (id: string, name: string, primaryLinesStr: string, secondaryLinesStr: string) => {
-    const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    const secondaryLines = secondaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!name || (primaryLines.length === 0 && secondaryLines.length === 0)) return;
+  const handleDeletePartner = async (id: string) => {
+    try {
+      setIsSyncing(true);
+      await deletePartnerFromFirestore(id);
+    } catch (err) {
+      console.error('Failed to delete partner from Firestore:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
-    setPartners(partners.map(p => p.id === id ? { 
-      ...p, 
-      name, 
-      primaryLines, 
-      secondaryLines, 
-      lines: [...primaryLines, ...secondaryLines] 
-    } : p));
+  const handleUpdatePartner = async (id: string, name: string, primaryLinesStr: string, allLinesStr: string) => {
+    const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const rawAllLines = allLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (!name || (primaryLines.length === 0 && rawAllLines.length === 0)) return;
+
+    // Combine and deduplicate
+    const allLinesMap = new Map<string, string>();
+    [...primaryLines, ...rawAllLines].forEach(line => {
+      const key = line.trim().toLowerCase();
+      if (key && !allLinesMap.has(key)) {
+        allLinesMap.set(key, line.trim());
+      }
+    });
+    const mergedAllLines = Array.from(allLinesMap.values());
+
+    const primarySet = new Set(primaryLines.map(l => l.toLowerCase()));
+    const secondaryLines = mergedAllLines.filter(l => !primarySet.has(l.toLowerCase()));
+
+    try {
+      setIsSyncing(true);
+      await updatePartnerInFirestore(id, {
+        name,
+        primaryLines,
+        secondaryLines,
+        lines: mergedAllLines
+      });
+    } catch (err) {
+      console.error('Failed to update partner in Firestore:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleResetPartners = async () => {
+    if (window.confirm('Reset all demand partners data in Firestore back to original defaults?')) {
+      try {
+        setIsSyncing(true);
+        await resetPartnersToDefault();
+      } catch (err) {
+        console.error('Failed to reset partners in Firestore:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    }
   };
 
   const analyzeAdsTxt = () => {
@@ -182,6 +313,25 @@ export default function App() {
     });
 
     setResults(analysis);
+
+    // Save completed analysis to history
+    const newHistoryEntry: HistoryItem = {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+      websiteUrl,
+      adsTxtContent,
+      timestamp: Date.now(),
+      results: analysis
+    };
+
+    setHistory(prev => {
+      const updated = filterValidHistory([newHistoryEntry, ...prev]);
+      try {
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to save analysis history:', err);
+      }
+      return updated;
+    });
   };
 
 
@@ -189,14 +339,21 @@ export default function App() {
     const allMissingLines = results.flatMap(r => r.missingLines);
     if (allMissingLines.length === 0) return;
 
-    // Use a Set to remove duplicates if multiple partners have the same missing line
-    const uniqueMissingLines = Array.from(new Set(allMissingLines));
+    // Use a Map to guarantee zero duplicates (case-insensitive & whitespace normalized)
+    const uniqueMap = new Map<string, string>();
+    allMissingLines.forEach(line => {
+      const key = line.trim().toLowerCase();
+      if (key && !uniqueMap.has(key)) {
+        uniqueMap.set(key, line.trim());
+      }
+    });
+    const uniqueMissingLines = Array.from(uniqueMap.values());
     
     const blob = new Blob([uniqueMissingLines.join('\n')], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'all_missing_ads_txt_lines.txt';
+    a.download = 'missing_ads_txt_lines.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -254,40 +411,126 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-8"
             >
-              <section className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1 space-y-6">
-                  <div className="space-y-2">
-                    <label className="col-header block">Website URL (Optional)</label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" size={16} />
-                      <input 
-                        type="text" 
-                        placeholder="example.com"
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        className="w-full bg-white border border-line/20 p-3 pl-10 font-mono text-sm focus:outline-none focus:border-line transition-colors"
+              {/* Main Workspace Layout with Conditional Left History Rail */}
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                {/* Slim Left History Rail: ONLY appears if there is search history */}
+                {history.length > 0 && (
+                  <div className="w-full md:w-auto shrink-0 group/history relative">
+                    {/* Clean Minimalist Vertical Rail Container */}
+                    <div className="relative bg-white/60 hover:bg-white/90 backdrop-blur-xs border border-line/15 hover:border-line/40 rounded-md p-2.5 min-w-[48px] md:w-12 flex flex-col items-center gap-2 shadow-xs transition-all">
+                      
+                      {/* Clear button - ONLY appears when user hovers inside the history box container */}
+                      <button
+                        onClick={handleClearHistory}
+                        className="opacity-0 group-hover/history:opacity-100 transition-opacity text-[9px] font-mono text-line/50 hover:text-accent-rose uppercase cursor-pointer py-0.5 tracking-tighter"
+                        title="Clear all history"
+                      >
+                        Clear
+                      </button>
+
+                      {/* Scrollable History Items Vertical Line List without scrollbar signs */}
+                      <div 
+                        ref={historyScrollRef}
+                        onScroll={() => setHoveredHistoryItem(null)}
+                        className="flex flex-col items-center gap-2.5 py-1 w-full max-h-[320px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                      >
+                        {history.map((item, index) => (
+                          <div
+                            key={item.id}
+                            onClick={() => handleRestoreHistoryItem(item)}
+                            onMouseEnter={(e) => {
+                              const target = e.currentTarget;
+                              const parent = historyScrollRef.current;
+                              const top = target.offsetTop - (parent ? parent.scrollTop : 0);
+                              setHoveredHistoryItem({ item, index, top });
+                            }}
+                            onMouseLeave={() => setHoveredHistoryItem(null)}
+                            className="group/item relative flex items-center justify-center py-1 cursor-pointer w-full"
+                          >
+                            {/* Single shaded line segment */}
+                            <div className="w-6 h-1 rounded-full bg-line/40 group-hover/item:bg-ink group-hover/item:w-8 transition-all duration-150 shrink-0 shadow-xs" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Popover / Tooltip rendered on outer parent container (never clipped by overflow-y-auto) */}
+                    <AnimatePresence>
+                      {hoveredHistoryItem && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -5 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -5 }}
+                          transition={{ duration: 0.12 }}
+                          style={{ top: `${hoveredHistoryItem.top + 28}px` }}
+                          className="absolute left-full ml-3 flex items-center gap-3 bg-ink text-bg text-xs font-mono px-3.5 py-2.5 rounded shadow-2xl z-50 whitespace-nowrap min-w-[180px] border border-ink/20 pointer-events-auto"
+                          onMouseEnter={() => setHoveredHistoryItem(hoveredHistoryItem)}
+                          onMouseLeave={() => setHoveredHistoryItem(null)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-bg truncate max-w-[160px]">
+                              {formatDomainOrName(hoveredHistoryItem.item.websiteUrl)}
+                            </div>
+                            <div className="text-[10px] text-bg/60 flex items-center gap-2 mt-0.5">
+                              <span>Check #{history.length - hoveredHistoryItem.index}</span>
+                              <span>•</span>
+                              <span>{formatHistoryTime(hoveredHistoryItem.item.timestamp)}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteHistoryItem(hoveredHistoryItem.item.id);
+                              setHoveredHistoryItem(null);
+                            }}
+                            className="text-bg/50 hover:text-accent-rose p-1 transition-colors cursor-pointer shrink-0 ml-1"
+                            title="Delete item"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {/* Rest of Section: Website URL & Ads.txt Content Input in same column & Analysis Results */}
+                <section className="grid lg:grid-cols-3 gap-8 flex-1 w-full">
+                  <div className="lg:col-span-1 space-y-6">
+                    {/* Website URL Input */}
+                    <div className="space-y-2">
+                      <label className="col-header block">Website URL (Optional)</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" size={16} />
+                        <input 
+                          type="text" 
+                          placeholder="example.com"
+                          value={websiteUrl}
+                          onChange={(e) => setWebsiteUrl(e.target.value)}
+                          className="w-full bg-white border border-line/20 p-3 pl-10 font-mono text-sm focus:outline-none focus:border-line transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Ads.txt Content Textarea */}
+                    <div className="space-y-2">
+                      <label className="col-header block">Ads.txt Content</label>
+                      <textarea 
+                        placeholder="Paste ads.txt content here..."
+                        value={adsTxtContent}
+                        onChange={(e) => setAdsTxtContent(e.target.value)}
+                        className="w-full h-64 bg-white border border-line/20 p-4 font-mono text-xs leading-relaxed focus:outline-none focus:border-line transition-colors resize-none"
                       />
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <label className="col-header block">Ads.txt Content</label>
-                    <textarea 
-                      placeholder="Paste ads.txt content here..."
-                      value={adsTxtContent}
-                      onChange={(e) => setAdsTxtContent(e.target.value)}
-                      className="w-full h-64 bg-white border border-line/20 p-4 font-mono text-xs leading-relaxed focus:outline-none focus:border-line transition-colors resize-none"
-                    />
+                    <button 
+                      onClick={analyzeAdsTxt}
+                      disabled={!adsTxtContent}
+                      className="btn-primary w-full py-4 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      Run Analysis
+                    </button>
                   </div>
-
-                  <button 
-                    onClick={analyzeAdsTxt}
-                    disabled={!adsTxtContent}
-                    className="btn-primary w-full py-4 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    Run Analysis
-                  </button>
-                </div>
 
                 <div className="lg:col-span-2 space-y-8">
                   {results.length === 0 ? (
@@ -387,6 +630,7 @@ export default function App() {
                   )}
                 </div>
               </section>
+            </div>
 
               <AnimatePresence>
                 {selectedResult && (
@@ -410,6 +654,8 @@ export default function App() {
                 onAdd={handleAddPartner} 
                 onDelete={handleDeletePartner} 
                 onUpdate={handleUpdatePartner}
+                onReset={handleResetPartners}
+                isSyncing={isSyncing}
               />
             </motion.div>
           )}
@@ -727,35 +973,37 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
 
 const PartnerManager: React.FC<{ 
   partners: Partner[], 
-  onAdd: (name: string, primaryLines: string, secondaryLines: string) => void, 
+  onAdd: (name: string, primaryLines: string, allLines: string) => void, 
   onDelete: (id: string) => void,
-  onUpdate: (id: string, name: string, primaryLines: string, secondaryLines: string) => void
-}> = ({ partners, onAdd, onDelete, onUpdate }) => {
+  onUpdate: (id: string, name: string, primaryLines: string, allLines: string) => void,
+  onReset: () => void,
+  isSyncing: boolean
+}> = ({ partners, onAdd, onDelete, onUpdate, onReset, isSyncing }) => {
   const [name, setName] = useState('');
   const [primaryLines, setPrimaryLines] = useState('');
-  const [secondaryLines, setSecondaryLines] = useState('');
+  const [allLines, setAllLines] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      onUpdate(editingId, name, primaryLines, secondaryLines);
+      onUpdate(editingId, name, primaryLines, allLines);
       setEditingId(null);
     } else {
-      onAdd(name, primaryLines, secondaryLines);
+      onAdd(name, primaryLines, allLines);
     }
     setName('');
     setPrimaryLines('');
-    setSecondaryLines('');
+    setAllLines('');
   };
 
   const startEdit = (partner: Partner) => {
     setEditingId(partner.id);
     setName(partner.name);
     const p = getPartnerPrimaryLines(partner);
-    const s = getPartnerSecondaryLines(partner);
+    const a = getAllPartnerLines(partner);
     setPrimaryLines(p.join('\n'));
-    setSecondaryLines(s.join('\n'));
+    setAllLines(a.join('\n'));
     const formElement = document.getElementById('partner-form');
     if (formElement) {
       formElement.scrollIntoView({ behavior: 'smooth' });
@@ -766,7 +1014,7 @@ const PartnerManager: React.FC<{
     setEditingId(null);
     setName('');
     setPrimaryLines('');
-    setSecondaryLines('');
+    setAllLines('');
   };
 
   return (
@@ -794,31 +1042,32 @@ const PartnerManager: React.FC<{
             </div>
             
             <div className="space-y-2">
-              <label className="col-header block">Primary Line(s)</label>
-              <p className="text-[10px] opacity-50 italic -mt-1">Enter core/primary ads.txt lines (one per line). Supports multiple lines.</p>
+              <label className="col-header block">Primary Line for Partner</label>
+              <p className="text-[10px] opacity-50 italic -mt-1">Enter core/primary ads.txt line(s) for this partner (one per line).</p>
               <textarea 
                 value={primaryLines}
                 onChange={(e) => setPrimaryLines(e.target.value)}
                 placeholder="domain.com, ID, DIRECT, TAG"
-                className="w-full h-32 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
+                className="w-full h-28 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="col-header block">Secondary / Reseller Line(s) (Optional)</label>
-              <p className="text-[10px] opacity-50 italic -mt-1">Enter reseller or secondary ads.txt lines (one per line).</p>
+              <label className="col-header block">All Lines for Partner</label>
+              <p className="text-[10px] opacity-50 italic -mt-1">Enter all ads.txt lines for this partner (includes primary & reseller lines).</p>
               <textarea 
-                value={secondaryLines}
-                onChange={(e) => setSecondaryLines(e.target.value)}
-                placeholder="domain.com, ID, RESELLER, TAG"
-                className="w-full h-32 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
+                value={allLines}
+                onChange={(e) => setAllLines(e.target.value)}
+                placeholder="domain.com, ID, DIRECT, TAG&#10;domain.com, ID, RESELLER, TAG"
+                className="w-full h-36 bg-bg/50 border border-line/10 p-3 font-mono text-xs focus:outline-none focus:border-line transition-colors resize-none"
+                required
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
-                {editingId ? <Check size={16} /> : <Plus size={16} />}
+              <button type="submit" disabled={isSyncing} className="btn-primary w-full flex items-center justify-center gap-2">
+                {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : editingId ? <Check size={16} /> : <Plus size={16} />}
                 {editingId ? 'Update Partner' : 'Save Partner'}
               </button>
               {editingId && (
@@ -840,32 +1089,46 @@ const PartnerManager: React.FC<{
             <h3 className="font-mono text-[10px] uppercase tracking-widest font-bold">Guidelines</h3>
           </div>
           <ul className="space-y-3 text-xs opacity-80 font-light leading-relaxed">
-            <li>• Configure <strong>Primary Lines</strong> and <strong>Secondary Lines</strong> separately for each partner.</li>
-            <li>• A partner can have <strong>multiple Primary Lines</strong> if required.</li>
-            <li>• Full verification requires <strong>all Primary Lines</strong> and Secondary Lines to be present.</li>
+            <li>• Configure the <strong>Primary Line for Partner</strong> and <strong>All Lines for Partner</strong>.</li>
+            <li>• Supports multiple primary lines or single primary line.</li>
+            <li>• Downloads for missing lines strictly exclude any duplicate entries.</li>
             <li>• Comments starting with <code>#</code> are automatically ignored.</li>
-            <li>• Data is stored locally in your browser.</li>
+            <li>• <strong>Real-time Cloud Sync:</strong> Any partner update is immediately synced across all active users in real-time.</li>
           </ul>
         </div>
       </div>
 
       <div className="lg:col-span-2 space-y-4">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-mono text-sm font-bold uppercase tracking-widest">Saved Partners ({partners.length})</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-mono text-sm font-bold uppercase tracking-widest">Saved Partners ({partners.length})</h2>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent-green/10 text-accent-green border border-accent-green/20 rounded-full text-[10px] font-mono">
+              <Cloud size={12} />
+              <span>Realtime Cloud Sync</span>
+            </div>
+          </div>
+          <button 
+            onClick={onReset}
+            disabled={isSyncing}
+            className="flex items-center gap-1.5 text-[10px] font-mono text-ink/50 hover:text-accent-rose transition-colors px-2 py-1 border border-line/15 rounded-sm hover:border-accent-rose/30"
+            title="Reset partners list to defaults"
+          >
+            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+            <span>Restore Defaults</span>
+          </button>
         </div>
 
         <div className="grid gap-4">
           {partners.map(partner => {
             const pList = getPartnerPrimaryLines(partner);
-            const sList = getPartnerSecondaryLines(partner);
-            const total = pList.length + sList.length;
+            const aList = getAllPartnerLines(partner);
 
             return (
               <div key={partner.id} className={`bg-white border p-5 group transition-all shadow-sm ${editingId === partner.id ? 'border-ink ring-1 ring-ink' : 'border-line/10 hover:border-line/30'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="font-bold text-lg tracking-tight underline-offset-4 decoration-line/20">{partner.name}</h3>
-                    <p className="col-header">{pList.length} primary line(s), {sList.length} secondary line(s) configured ({total} total)</p>
+                    <p className="col-header">{pList.length} primary line(s) • {aList.length} total line(s)</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button 
@@ -895,19 +1158,17 @@ const PartnerManager: React.FC<{
                     </div>
                   </div>
 
-                  {sList.length > 0 && (
-                    <div className="flex items-start gap-2 pt-1 border-t border-line/5">
-                      <span className="text-[9px] font-mono uppercase bg-line/10 text-ink/60 px-1.5 py-0.5 rounded-none shrink-0 mt-0.5">Secondary ({sList.length})</span>
-                      <div className="space-y-1 flex-1 overflow-hidden">
-                        {sList.slice(0, 3).map((l, idx) => (
-                          <code key={idx} className="text-[10px] font-mono opacity-50 block truncate">{l}</code>
-                        ))}
-                        {sList.length > 3 && (
-                          <p className="text-[10px] font-mono opacity-40 italic">+{sList.length - 3} more secondary lines</p>
-                        )}
-                      </div>
+                  <div className="flex items-start gap-2 pt-1 border-t border-line/5">
+                    <span className="text-[9px] font-mono uppercase bg-line/10 text-ink/60 px-1.5 py-0.5 rounded-none shrink-0 mt-0.5">All Lines ({aList.length})</span>
+                    <div className="space-y-1 flex-1 overflow-hidden">
+                      {aList.slice(0, 3).map((l, idx) => (
+                        <code key={idx} className="text-[10px] font-mono opacity-50 block truncate">{l}</code>
+                      ))}
+                      {aList.length > 3 && (
+                        <p className="text-[10px] font-mono opacity-40 italic">+{aList.length - 3} more lines</p>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             );

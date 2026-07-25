@@ -1,0 +1,30 @@
+{
+  "entities": {
+    "partners": {
+      "title": "Demand Partners",
+      "description": "Shared demand partners and ads.txt seller lines synced across all users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "lines": { "type": "array", "items": { "type": "string" } },
+        "primaryLines": { "type": "array", "items": { "type": "string" } },
+        "secondaryLines": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "lines"]
+    },
+    "history": {
+      "title": "Validation History",
+      "description": "Recent ads.txt checks history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "adsTxtContent": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["timestamp"]
+    }
+  }
+}
