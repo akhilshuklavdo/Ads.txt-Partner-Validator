@@ -1,0 +1,6 @@
+<svg viewBox="0 0 320 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 6 14 C 6 7.5 13.2 3.5 19 6.8 L 48 24 C 54 27.5 54 34.5 48 38 L 19 55.2 C 13.2 58.5 6 54.5 6 48 Z" fill="#E50914" />
+  <text x="66" y="52" fill="#0F172A" font-family="Arial Black, Impact, 'Arial Black', sans-serif" font-weight="900" font-size="52" letter-spacing="-1px">VDO</text>
+  <circle cx="202" cy="46" r="7.5" fill="#E50914" />
+  <text x="218" y="52" fill="#0F172A" font-family="Arial Black, Impact, 'Arial Black', sans-serif" font-weight="900" font-size="52" letter-spacing="-1px">AI</text>
+</svg>

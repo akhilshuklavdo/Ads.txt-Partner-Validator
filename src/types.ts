@@ -50,6 +50,8 @@ export interface AnalysisResult {
   status: AnalysisStatus;
   foundLines: string[];
   missingLines: string[];
+  missingPrimaryLines?: string[];
+  missingSecondaryLines?: string[];
 }
 
 export interface HistoryItem {
