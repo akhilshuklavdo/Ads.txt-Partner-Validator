@@ -24,6 +24,7 @@ import {
   Clock,
   Cloud,
   RefreshCw,
+  Save,
   Lock,
   KeyRound,
   ShieldAlert,
@@ -45,7 +46,8 @@ import {
   addPartnerInFirestore, 
   updatePartnerInFirestore, 
   deletePartnerFromFirestore,
-  resetPartnersToDefault 
+  resetPartnersToDefault,
+  saveCurrentPartnersAsDefault
 } from './lib/firebase';
 
 const HISTORY_STORAGE_KEY = 'ads_txt_history';
@@ -346,6 +348,21 @@ export default function App() {
         await resetPartnersToDefault();
       } catch (err) {
         console.error('Failed to reset partners in Firestore:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+  };
+
+  const handleUpdateDefaultPartners = async () => {
+    if (window.confirm('Save the current partners list as the default dataset? "Restore Defaults" will revert to this updated list in the future.')) {
+      try {
+        setIsSyncing(true);
+        await saveCurrentPartnersAsDefault(partners);
+        alert('Successfully updated default partners list! "Restore Defaults" will now revert to this current configuration.');
+      } catch (err) {
+        console.error('Failed to update default partners:', err);
+        alert('Failed to update default partners list.');
       } finally {
         setIsSyncing(false);
       }
@@ -1000,6 +1017,7 @@ export default function App() {
                 onDelete={handleDeletePartner} 
                 onUpdate={handleUpdatePartner}
                 onReset={handleResetPartners}
+                onUpdateDefaults={handleUpdateDefaultPartners}
                 isSyncing={isSyncing}
               />
             </motion.div>
@@ -1374,8 +1392,9 @@ const PartnerManager: React.FC<{
   onDelete: (id: string) => void,
   onUpdate: (id: string, name: string, primaryLines: string, ortbLines: string, allLines: string) => void,
   onReset: () => void,
+  onUpdateDefaults: () => void,
   isSyncing: boolean
-}> = ({ partners, onAdd, onDelete, onUpdate, onReset, isSyncing }) => {
+}> = ({ partners, onAdd, onDelete, onUpdate, onReset, onUpdateDefaults, isSyncing }) => {
   const [name, setName] = useState('');
   const [primaryLines, setPrimaryLines] = useState('');
   const [ortbLines, setOrtbLines] = useState('');
@@ -1485,6 +1504,12 @@ const PartnerManager: React.FC<{
     requireCodeAndExecute(() => {
       onReset();
     }, 'restoring default partners list');
+  };
+
+  const handleSaveAsDefault = () => {
+    requireCodeAndExecute(() => {
+      onUpdateDefaults();
+    }, 'updating default partners list');
   };
 
   const cancelEdit = () => {
@@ -1628,18 +1653,23 @@ const PartnerManager: React.FC<{
                   Overview of all Registered Demand Partners and their ads.txt lines.
                 </p>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-full text-xs font-sans font-bold">
-                  <Cloud size={13} />
-                  <span>Cloud Synced</span>
-                </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end">
+                <button 
+                  onClick={handleSaveAsDefault}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1.5 text-xs font-sans font-bold text-slate-800 hover:text-emerald-800 transition-colors px-3 py-1.5 border border-slate-300 rounded-sm hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/50 shadow-2xs cursor-pointer"
+                  title="Save current list as default dataset for future restores"
+                >
+                  <Save size={13} className="text-emerald-600 shrink-0" />
+                  <span>Update Defaults</span>
+                </button>
                 <button 
                   onClick={handleReset}
                   disabled={isSyncing}
-                  className="flex items-center gap-1.5 text-xs font-sans font-bold text-slate-700 hover:text-rose-700 transition-colors px-3 py-1.5 border border-slate-300 rounded-sm hover:border-rose-300 bg-slate-50"
+                  className="flex items-center gap-1.5 text-xs font-sans font-bold text-slate-700 hover:text-rose-700 transition-colors px-3 py-1.5 border border-slate-300 rounded-sm hover:border-rose-300 bg-slate-50 shadow-2xs cursor-pointer"
                   title="Reset partners list to default dataset"
                 >
-                  <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                  <RefreshCw size={13} className={`shrink-0 ${isSyncing ? "animate-spin" : ""}`} />
                   <span>Restore Defaults</span>
                 </button>
               </div>

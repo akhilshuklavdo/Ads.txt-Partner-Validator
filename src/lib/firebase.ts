@@ -20,6 +20,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
 
 const PARTNERS_COLLECTION = 'partners';
+const DEFAULT_TEMPLATES_COLLECTION = 'default_partners_template';
 
 /**
  * Real-time listener for demand partners from Firestore.
@@ -64,10 +65,30 @@ export function subscribeToPartners(onPartnersUpdate: (partners: Partner[]) => v
 
 /**
  * Seeds the initial set of default partners into Firestore in batches.
+ * Checks default_partners_template first, otherwise falls back to partners.json.
  */
 export async function seedDefaultPartners(): Promise<void> {
   try {
-    const defaultPartners = defaultPartnersData as Partner[];
+    const templateRef = collection(db, DEFAULT_TEMPLATES_COLLECTION);
+    const templateSnap = await getDocs(templateRef);
+
+    let defaultPartners: Partner[] = [];
+    if (!templateSnap.empty) {
+      templateSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        defaultPartners.push({
+          id: docSnap.id,
+          name: data.name || '',
+          lines: data.lines || [],
+          primaryLines: data.primaryLines || [],
+          ortbLines: data.ortbLines || [],
+          secondaryLines: data.secondaryLines || [],
+        });
+      });
+    } else {
+      defaultPartners = defaultPartnersData as Partner[];
+    }
+
     const batchSize = 400; // Firestore batch limit is 500
     for (let i = 0; i < defaultPartners.length; i += batchSize) {
       const chunk = defaultPartners.slice(i, i + batchSize);
@@ -90,6 +111,65 @@ export async function seedDefaultPartners(): Promise<void> {
     console.log(`Successfully seeded ${defaultPartners.length} partners to Firestore.`);
   } catch (err) {
     console.error('Failed to seed default partners to Firestore:', err);
+  }
+}
+
+/**
+ * Saves the current list of partners as the new default partner dataset template.
+ */
+export async function saveCurrentPartnersAsDefault(currentPartners: Partner[]): Promise<void> {
+  try {
+    const templateRef = collection(db, DEFAULT_TEMPLATES_COLLECTION);
+    const snapshot = await getDocs(templateRef);
+
+    // Delete existing template documents
+    const deleteBatches: any[] = [];
+    let currentBatch = writeBatch(db);
+    let count = 0;
+
+    snapshot.docs.forEach((docSnap) => {
+      currentBatch.delete(docSnap.ref);
+      count++;
+      if (count % 400 === 0) {
+        deleteBatches.push(currentBatch.commit());
+        currentBatch = writeBatch(db);
+      }
+    });
+    if (count % 400 !== 0) {
+      deleteBatches.push(currentBatch.commit());
+    }
+    await Promise.all(deleteBatches);
+
+    // Save current partners into template collection
+    const writeBatches: any[] = [];
+    let writeBatchObj = writeBatch(db);
+    let wCount = 0;
+
+    currentPartners.forEach((partner) => {
+      const docRef = doc(db, DEFAULT_TEMPLATES_COLLECTION, partner.id || crypto.randomUUID());
+      writeBatchObj.set(docRef, {
+        name: partner.name,
+        lines: partner.lines || [],
+        primaryLines: partner.primaryLines || [],
+        ortbLines: partner.ortbLines || [],
+        secondaryLines: partner.secondaryLines || [],
+        updatedAt: new Date().toISOString()
+      });
+      wCount++;
+      if (wCount % 400 === 0) {
+        writeBatches.push(writeBatchObj.commit());
+        writeBatchObj = writeBatch(db);
+      }
+    });
+    if (wCount % 400 !== 0) {
+      writeBatches.push(writeBatchObj.commit());
+    }
+    await Promise.all(writeBatches);
+
+    console.log(`Saved ${currentPartners.length} partners as default partners template.`);
+  } catch (err) {
+    console.error('Failed to save current partners as default template:', err);
+    throw err;
   }
 }
 
