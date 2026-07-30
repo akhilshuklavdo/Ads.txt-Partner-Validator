@@ -35,6 +35,7 @@ import {
   AnalysisStatus,
   HistoryItem,
   getPartnerPrimaryLines,
+  getPartnerOrtbLines,
   getPartnerSecondaryLines,
   getAllPartnerLines
 } from './types';
@@ -49,8 +50,8 @@ import {
 
 const HISTORY_STORAGE_KEY = 'ads_txt_history';
 
-const VdoAiLogo = ({ className = "h-8 w-auto" }: { className?: string }) => (
-  <svg viewBox="0 0 320 70" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+const VdoAiLogo = ({ className = "h-8 w-auto", onClick }: { className?: string; onClick?: () => void }) => (
+  <svg viewBox="0 0 320 70" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} onClick={onClick}>
     <path d="M 6 14 C 6 7.5 13.2 3.5 19 6.8 L 48 24 C 54 27.5 54 34.5 48 38 L 19 55.2 C 13.2 58.5 6 54.5 6 48 Z" fill="#E50914" />
     <text x="66" y="52" fill="#0F172A" fontFamily="Arial Black, Impact, 'Arial Black', sans-serif" fontWeight="900" fontSize="52" letterSpacing="-1px">VDO</text>
     <circle cx="202" cy="46" r="7.5" fill="#E50914" />
@@ -257,14 +258,15 @@ export default function App() {
     }
   };
 
-  const handleAddPartner = async (name: string, primaryLinesStr: string, allLinesStr: string) => {
+  const handleAddPartner = async (name: string, primaryLinesStr: string, ortbLinesStr: string, allLinesStr: string) => {
     const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const ortbLines = ortbLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
     const rawAllLines = allLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!name || (primaryLines.length === 0 && rawAllLines.length === 0)) return;
+    if (!name || (primaryLines.length === 0 && ortbLines.length === 0 && rawAllLines.length === 0)) return;
 
-    // Combine and deduplicate primaryLines and allLines
+    // Combine and deduplicate
     const allLinesMap = new Map<string, string>();
-    [...primaryLines, ...rawAllLines].forEach(line => {
+    [...primaryLines, ...ortbLines, ...rawAllLines].forEach(line => {
       const key = line.trim().toLowerCase();
       if (key && !allLinesMap.has(key)) {
         allLinesMap.set(key, line.trim());
@@ -272,15 +274,15 @@ export default function App() {
     });
     const mergedAllLines = Array.from(allLinesMap.values());
 
-    // Secondary lines are all lines minus primary lines
-    const primarySet = new Set(primaryLines.map(l => l.toLowerCase()));
-    const secondaryLines = mergedAllLines.filter(l => !primarySet.has(l.toLowerCase()));
+    const primaryAndOrtbSet = new Set([...primaryLines, ...ortbLines].map(l => l.toLowerCase()));
+    const secondaryLines = mergedAllLines.filter(l => !primaryAndOrtbSet.has(l.toLowerCase()));
 
     try {
       setIsSyncing(true);
       await addPartnerInFirestore({
         name,
         primaryLines,
+        ortbLines,
         secondaryLines,
         lines: mergedAllLines
       });
@@ -302,14 +304,15 @@ export default function App() {
     }
   };
 
-  const handleUpdatePartner = async (id: string, name: string, primaryLinesStr: string, allLinesStr: string) => {
+  const handleUpdatePartner = async (id: string, name: string, primaryLinesStr: string, ortbLinesStr: string, allLinesStr: string) => {
     const primaryLines = primaryLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const ortbLines = ortbLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
     const rawAllLines = allLinesStr.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!name || (primaryLines.length === 0 && rawAllLines.length === 0)) return;
+    if (!name || (primaryLines.length === 0 && ortbLines.length === 0 && rawAllLines.length === 0)) return;
 
     // Combine and deduplicate
     const allLinesMap = new Map<string, string>();
-    [...primaryLines, ...rawAllLines].forEach(line => {
+    [...primaryLines, ...ortbLines, ...rawAllLines].forEach(line => {
       const key = line.trim().toLowerCase();
       if (key && !allLinesMap.has(key)) {
         allLinesMap.set(key, line.trim());
@@ -317,14 +320,15 @@ export default function App() {
     });
     const mergedAllLines = Array.from(allLinesMap.values());
 
-    const primarySet = new Set(primaryLines.map(l => l.toLowerCase()));
-    const secondaryLines = mergedAllLines.filter(l => !primarySet.has(l.toLowerCase()));
+    const primaryAndOrtbSet = new Set([...primaryLines, ...ortbLines].map(l => l.toLowerCase()));
+    const secondaryLines = mergedAllLines.filter(l => !primaryAndOrtbSet.has(l.toLowerCase()));
 
     try {
       setIsSyncing(true);
       await updatePartnerInFirestore(id, {
         name,
         primaryLines,
+        ortbLines,
         secondaryLines,
         lines: mergedAllLines
       });
@@ -376,14 +380,14 @@ export default function App() {
 
     const analysis: AnalysisResult[] = partners.map(partner => {
       const primaryLines = getPartnerPrimaryLines(partner);
+      const ortbLines = getPartnerOrtbLines(partner);
       const secondaryLines = getPartnerSecondaryLines(partner);
 
       const findMatchingInputLine = (pLine: string): string | null => {
         const parsedP = parseAdsTxtLine(pLine);
         
         if (parsedP) {
-          // Primary check: Advertising System Domain and Publisher Account ID
-          // Prefer matching relationship type if present in both
+          // Check for exact domain + accountId + relationshipType
           const exactMatch = parsedInputLines.find(i => 
             i.domain === parsedP.domain && 
             i.accountId === parsedP.accountId &&
@@ -415,6 +419,11 @@ export default function App() {
         matched: findMatchingInputLine(line)
       }));
 
+      const ortbMatches = ortbLines.map(line => ({
+        configured: line,
+        matched: findMatchingInputLine(line)
+      }));
+
       const secondaryMatches = secondaryLines.map(line => ({
         configured: line,
         matched: findMatchingInputLine(line)
@@ -428,6 +437,14 @@ export default function App() {
         .filter(m => m.matched === null)
         .map(m => m.configured);
 
+      const foundOrtb = ortbMatches
+        .filter(m => m.matched !== null)
+        .map(m => m.configured);
+
+      const missingOrtb = ortbMatches
+        .filter(m => m.matched === null)
+        .map(m => m.configured);
+
       const foundSecondary = secondaryMatches
         .filter(m => m.matched !== null)
         .map(m => m.configured);
@@ -438,17 +455,25 @@ export default function App() {
 
       const allPrimaryFound = primaryLines.length > 0 && missingPrimary.length === 0;
       const somePrimaryFound = foundPrimary.length > 0;
+      const someOrtbFound = foundOrtb.length > 0;
       const someSecondaryFound = foundSecondary.length > 0;
 
       let status: AnalysisStatus = 'none';
       if (allPrimaryFound) {
-        status = missingSecondary.length === 0 ? 'all' : 'partial';
-      } else if (somePrimaryFound || someSecondaryFound) {
+        status = (missingOrtb.length === 0 && missingSecondary.length === 0) ? 'all' : 'partial';
+      } else if (somePrimaryFound || someOrtbFound || someSecondaryFound) {
         status = 'any_secondary';
       }
 
-      const foundLines = [...foundPrimary, ...foundSecondary];
-      const missingLines = [...missingPrimary, ...missingSecondary];
+      const foundLines = [...foundPrimary, ...foundOrtb, ...foundSecondary];
+      const missingLines = [...missingPrimary, ...missingOrtb, ...missingSecondary];
+
+      const missingPrimaryAndOrtbMap = new Map<string, string>();
+      [...missingPrimary, ...missingOrtb].forEach(l => {
+        const k = l.trim().toLowerCase();
+        if (k && !missingPrimaryAndOrtbMap.has(k)) missingPrimaryAndOrtbMap.set(k, l.trim());
+      });
+      const missingPrimaryAndOrtbLines = Array.from(missingPrimaryAndOrtbMap.values());
 
       return {
         partner,
@@ -456,6 +481,8 @@ export default function App() {
         foundLines,
         missingLines,
         missingPrimaryLines: missingPrimary,
+        missingOrtbLines: missingOrtb,
+        missingPrimaryAndOrtbLines,
         missingSecondaryLines: missingSecondary
       };
     });
@@ -481,7 +508,6 @@ export default function App() {
       return updated;
     });
   };
-
 
   const downloadMissingPrimaryLines = () => {
     const allMissingPrimaryLines = results.flatMap(r => {
@@ -511,6 +537,42 @@ export default function App() {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'missing_primary_ads_txt_lines.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadMissingPrimaryAndOrtbLines = () => {
+    const allMissingPrimaryAndOrtbLines = results.flatMap(r => {
+      if (r.missingPrimaryAndOrtbLines) return r.missingPrimaryAndOrtbLines;
+      const primaryLines = getPartnerPrimaryLines(r.partner);
+      const ortbLines = getPartnerOrtbLines(r.partner);
+      const combined = [...primaryLines, ...ortbLines];
+      const parseKey = (s: string) => {
+        const parts = s.split('#')[0].split(',').map(x => x.trim().toLowerCase());
+        return parts.length >= 2 ? `${parts[0]},${parts[1]}` : s.trim().toLowerCase();
+      };
+      const targetKeys = new Set(combined.map(parseKey));
+      return r.missingLines.filter(line => targetKeys.has(parseKey(line)));
+    });
+
+    if (allMissingPrimaryAndOrtbLines.length === 0) return;
+
+    const uniqueMap = new Map<string, string>();
+    allMissingPrimaryAndOrtbLines.forEach(line => {
+      const key = line.trim().toLowerCase();
+      if (key && !uniqueMap.has(key)) {
+        uniqueMap.set(key, line.trim());
+      }
+    });
+    const uniqueMissing = Array.from(uniqueMap.values());
+    
+    const blob = new Blob([uniqueMissing.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'missing_primary_and_ortb_ads_txt_lines.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -554,6 +616,21 @@ export default function App() {
     return uniqueMap.size;
   }, [results]);
 
+  const totalMissingPrimaryAndOrtbCount = useMemo(() => {
+    const uniqueMap = new Map<string, string>();
+    results.forEach(r => {
+      const missingList = r.missingPrimaryAndOrtbLines || [
+        ...(r.missingPrimaryLines || []),
+        ...(r.missingOrtbLines || [])
+      ];
+      missingList.forEach(line => {
+        const key = line.trim().toLowerCase();
+        if (key && !uniqueMap.has(key)) uniqueMap.set(key, line.trim());
+      });
+    });
+    return uniqueMap.size;
+  }, [results]);
+
   const totalMissingAllCount = useMemo(() => {
     const uniqueMap = new Map<string, string>();
     results.forEach(r => {
@@ -576,12 +653,28 @@ export default function App() {
     };
   }, [results]);
 
+  const handleLogoClick = () => {
+    setActiveTab('check');
+    setWebsiteUrl('');
+    setAdsTxtContent('');
+    setResults([]);
+    setSelectedResult(null);
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Header */}
       <header className="border-b border-slate-200 p-5 lg:px-10 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white/90 backdrop-blur-md sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-4">
-          <VdoAiLogo className="h-9 w-auto shrink-0" />
+          <button 
+            onClick={handleLogoClick}
+            className="cursor-pointer transition-transform hover:scale-105 active:scale-95 focus:outline-none"
+            title="Reset to home state"
+            aria-label="VDO.AI Logo - Reset Home"
+          >
+            <VdoAiLogo className="h-9 w-auto shrink-0 pointer-events-none" />
+          </button>
           <div className="h-8 w-px bg-slate-200 hidden sm:block" />
           <div>
             <h1 className="font-sans text-xl font-extrabold tracking-tight text-slate-900 uppercase">Ads.txt Validator</h1>
@@ -829,31 +922,52 @@ export default function App() {
 
                       {/* Download Missing Lines Buttons */}
                       {results.some(r => r.missingLines.length > 0) && (
-                        <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4 border-t border-slate-200 mt-6">
-                          {totalMissingPrimaryCount > 0 && (
-                            <button 
-                              onClick={downloadMissingPrimaryLines}
-                              className="flex items-center gap-2.5 px-6 py-3.5 bg-amber-600 text-white font-sans text-xs font-bold uppercase tracking-wider rounded-md hover:bg-amber-700 transition-all shadow-md active:scale-95"
-                            >
-                              <Download size={16} />
-                              Download Missing Primary Lines
-                              <span className="ml-2 bg-white/20 text-white px-2 py-0.5 rounded text-[11px] font-mono">
-                                {totalMissingPrimaryCount}
-                              </span>
-                            </button>
+                        <div className="pt-6 border-t border-slate-200 mt-6 flex flex-col items-center gap-3.5 w-full">
+                          {/* First Row (Desktop): Primary Lines & Primary + ORTB Lines */}
+                          {(totalMissingPrimaryCount > 0 || totalMissingPrimaryAndOrtbCount > 0) && (
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
+                              {totalMissingPrimaryCount > 0 && (
+                                <button 
+                                  onClick={downloadMissingPrimaryLines}
+                                  className="w-full sm:w-auto min-w-max inline-flex items-center justify-center gap-2.5 px-5 py-3.5 bg-amber-600 text-white font-sans text-xs font-bold uppercase tracking-wider rounded-md hover:bg-amber-700 transition-all shadow-md active:scale-95 whitespace-nowrap shrink-0"
+                                >
+                                  <Download size={16} className="shrink-0" />
+                                  <span className="whitespace-nowrap">Download Missing Primary Lines</span>
+                                  <span className="ml-1 bg-white/20 text-white px-2 py-0.5 rounded text-[11px] font-mono shrink-0">
+                                    {totalMissingPrimaryCount}
+                                  </span>
+                                </button>
+                              )}
+
+                              {totalMissingPrimaryAndOrtbCount > 0 && (
+                                <button 
+                                  onClick={downloadMissingPrimaryAndOrtbLines}
+                                  className="w-full sm:w-auto min-w-max inline-flex items-center justify-center gap-2.5 px-5 py-3.5 bg-purple-700 text-white font-sans text-xs font-bold uppercase tracking-wider rounded-md hover:bg-purple-800 transition-all shadow-md active:scale-95 whitespace-nowrap shrink-0"
+                                >
+                                  <Download size={16} className="shrink-0" />
+                                  <span className="whitespace-nowrap">Download Missing Primary + ORTB Lines</span>
+                                  <span className="ml-1 bg-white/20 text-white px-2 py-0.5 rounded text-[11px] font-mono shrink-0">
+                                    {totalMissingPrimaryAndOrtbCount}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
                           )}
 
+                          {/* Second Row (Desktop): Download All Missing Lines */}
                           {totalMissingAllCount > 0 && (
-                            <button 
-                              onClick={downloadAllMissingLines}
-                              className="flex items-center gap-2.5 px-6 py-3.5 bg-slate-900 text-white font-sans text-xs font-bold uppercase tracking-wider rounded-md hover:bg-slate-800 transition-all shadow-md active:scale-95"
-                            >
-                              <Download size={16} />
-                              Download All Missing Lines
-                              <span className="ml-2 bg-white/20 text-white px-2 py-0.5 rounded text-[11px] font-mono">
-                                {totalMissingAllCount}
-                              </span>
-                            </button>
+                            <div className="flex items-center justify-center w-full sm:w-auto">
+                              <button 
+                                onClick={downloadAllMissingLines}
+                                className="w-full sm:w-auto min-w-max inline-flex items-center justify-center gap-2.5 px-5 py-3.5 bg-slate-900 text-white font-sans text-xs font-bold uppercase tracking-wider rounded-md hover:bg-slate-800 transition-all shadow-md active:scale-95 whitespace-nowrap shrink-0"
+                              >
+                                <Download size={16} className="shrink-0" />
+                                <span className="whitespace-nowrap">Download All Missing Lines</span>
+                                <span className="ml-1 bg-white/20 text-white px-2 py-0.5 rounded text-[11px] font-mono shrink-0">
+                                  {totalMissingAllCount}
+                                </span>
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
@@ -1093,6 +1207,7 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
   const [copiedMissing, setCopiedMissing] = useState(false);
 
   const primaryLines = getPartnerPrimaryLines(result.partner);
+  const ortbLines = getPartnerOrtbLines(result.partner);
   const secondaryLines = getPartnerSecondaryLines(result.partner);
 
   const copyLines = async (lines: string[], setCopied: (v: boolean) => void) => {
@@ -1105,13 +1220,15 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
     }
   };
 
-  const isPrimary = (line: string) => {
+  const getLineCategory = (line: string): 'Primary' | 'ORTB' | 'Secondary' => {
     const parseKey = (s: string) => {
       const parts = s.split('#')[0].split(',').map(x => x.trim().toLowerCase());
       return parts.length >= 2 ? `${parts[0]},${parts[1]}` : s.trim().toLowerCase();
     };
     const targetKey = parseKey(line);
-    return primaryLines.some(pl => parseKey(pl) === targetKey);
+    if (primaryLines.some(pl => parseKey(pl) === targetKey)) return 'Primary';
+    if (ortbLines.some(ol => parseKey(ol) === targetKey)) return 'ORTB';
+    return 'Secondary';
   };
 
   return (
@@ -1144,7 +1261,7 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
                 {result.status.replace('_', ' ')}
               </span>
             </h2>
-            <p className="col-header mt-1">Detailed ads.txt line analysis • {primaryLines.length} Primary line(s), {secondaryLines.length} Secondary line(s)</p>
+            <p className="col-header mt-1">Detailed ads.txt line analysis • {primaryLines.length} Primary line(s), {ortbLines.length} ORTB line(s), {secondaryLines.length} Secondary line(s)</p>
           </div>
           <button 
             onClick={onClose}
@@ -1177,11 +1294,15 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
                 {result.foundLines.length > 0 ? (
                   <div className="space-y-2">
                     {result.foundLines.map((line, i) => {
-                      const primary = isPrimary(line);
+                      const category = getLineCategory(line);
                       return (
                         <div key={i} className="flex items-start gap-2.5 font-mono text-xs leading-relaxed break-all p-2 bg-white border border-slate-200 rounded text-slate-900 font-medium">
-                          <span className={`text-[10px] font-sans font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${primary ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-800'}`}>
-                            {primary ? 'Primary' : 'Secondary'}
+                          <span className={`text-[10px] font-sans font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${
+                            category === 'Primary' ? 'bg-slate-900 text-white' :
+                            category === 'ORTB' ? 'bg-purple-900 text-purple-100' :
+                            'bg-slate-200 text-slate-800'
+                          }`}>
+                            {category}
                           </span>
                           <code className="text-slate-900 font-medium">{line}</code>
                         </div>
@@ -1217,11 +1338,15 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
                 {result.missingLines.length > 0 ? (
                   <div className="space-y-2">
                     {result.missingLines.map((line, i) => {
-                      const primary = isPrimary(line);
+                      const category = getLineCategory(line);
                       return (
                         <div key={i} className="flex items-start gap-2.5 font-mono text-xs leading-relaxed break-all p-2 bg-white border border-rose-200 rounded text-rose-950 font-medium">
-                          <span className={`text-[10px] font-sans font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${primary ? 'bg-rose-700 text-white' : 'bg-rose-100 text-rose-900 border border-rose-300'}`}>
-                            {primary ? 'Primary' : 'Secondary'}
+                          <span className={`text-[10px] font-sans font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${
+                            category === 'Primary' ? 'bg-rose-700 text-white' :
+                            category === 'ORTB' ? 'bg-purple-800 text-purple-100' :
+                            'bg-rose-100 text-rose-900 border border-rose-300'
+                          }`}>
+                            {category}
                           </span>
                           <code className="text-rose-900 font-semibold">{line}</code>
                         </div>
@@ -1245,14 +1370,15 @@ const DetailModal: React.FC<{ result: AnalysisResult, onClose: () => void }> = (
 
 const PartnerManager: React.FC<{ 
   partners: Partner[], 
-  onAdd: (name: string, primaryLines: string, allLines: string) => void, 
+  onAdd: (name: string, primaryLines: string, ortbLines: string, allLines: string) => void, 
   onDelete: (id: string) => void,
-  onUpdate: (id: string, name: string, primaryLines: string, allLines: string) => void,
+  onUpdate: (id: string, name: string, primaryLines: string, ortbLines: string, allLines: string) => void,
   onReset: () => void,
   isSyncing: boolean
 }> = ({ partners, onAdd, onDelete, onUpdate, onReset, isSyncing }) => {
   const [name, setName] = useState('');
   const [primaryLines, setPrimaryLines] = useState('');
+  const [ortbLines, setOrtbLines] = useState('');
   const [allLines, setAllLines] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -1282,12 +1408,36 @@ const PartnerManager: React.FC<{
   };
 
   const filteredPartners = useMemo(() => {
-    if (!searchQuery.trim()) return partners;
-    const q = searchQuery.toLowerCase();
-    return partners.filter(p => 
-      p.name.toLowerCase().includes(q) || 
-      p.lines?.some(l => l.toLowerCase().includes(q))
-    );
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return partners;
+
+    const normalizedQ = q.replace(/[^a-z0-9]/g, '');
+
+    const matches = partners.filter(p => {
+      const pName = (p.name || '').toLowerCase();
+      // Direct name match
+      if (pName.includes(q)) return true;
+
+      // Normalized name match (e.g. ignoring dots, spaces, hyphens)
+      const normalizedPName = pName.replace(/[^a-z0-9]/g, '');
+      if (normalizedQ && normalizedPName.includes(normalizedQ)) return true;
+
+      // Match within any configured lines (primary, ortb, secondary, or general)
+      const allLines = getAllPartnerLines(p);
+      return allLines.some(l => l.toLowerCase().includes(q));
+    });
+
+    // Sort results so partner name matches rank higher than deep line matches
+    return matches.sort((a, b) => {
+      const aName = (a.name || '').toLowerCase();
+      const bName = (b.name || '').toLowerCase();
+      const aNameMatch = aName.includes(q);
+      const bNameMatch = bName.includes(q);
+
+      if (aNameMatch && !bNameMatch) return -1;
+      if (!aNameMatch && bNameMatch) return 1;
+      return aName.localeCompare(bName);
+    });
   }, [partners, searchQuery]);
 
   const handleSubmit = (e: FormEvent) => {
@@ -1295,13 +1445,14 @@ const PartnerManager: React.FC<{
     const actionName = editingId ? `updating partner "${name}"` : `adding partner "${name}"`;
     requireCodeAndExecute(() => {
       if (editingId) {
-        onUpdate(editingId, name, primaryLines, allLines);
+        onUpdate(editingId, name, primaryLines, ortbLines, allLines);
         setEditingId(null);
       } else {
-        onAdd(name, primaryLines, allLines);
+        onAdd(name, primaryLines, ortbLines, allLines);
       }
       setName('');
       setPrimaryLines('');
+      setOrtbLines('');
       setAllLines('');
     }, actionName);
   };
@@ -1312,8 +1463,10 @@ const PartnerManager: React.FC<{
       setEditingId(partner.id);
       setName(partner.name);
       const p = getPartnerPrimaryLines(partner);
+      const o = getPartnerOrtbLines(partner);
       const a = getAllPartnerLines(partner);
       setPrimaryLines(p.join('\n'));
+      setOrtbLines(o.join('\n'));
       setAllLines(a.join('\n'));
       const formElement = document.getElementById('partner-form');
       if (formElement) {
@@ -1338,6 +1491,7 @@ const PartnerManager: React.FC<{
     setEditingId(null);
     setName('');
     setPrimaryLines('');
+    setOrtbLines('');
     setAllLines('');
   };
 
@@ -1371,8 +1525,8 @@ const PartnerManager: React.FC<{
             </div>
             <ul className="space-y-1.5 text-xs text-slate-200 font-normal leading-relaxed">
               <li>• A 3-digit security PIN is required before saving, editing, or deleting partners.</li>
+              <li>• Each partner supports Primary Lines, ORTB Lines, and All Lines.</li>
               <li>• Editing or deleting partners will sync immediately to Cloud Storage.</li>
-              <li>• Missing line downloads automatically exclude duplicates across all configured partners.</li>
             </ul>
           </div>
 
@@ -1410,25 +1564,34 @@ const PartnerManager: React.FC<{
               
               <div className="space-y-1.5">
                 <label className="col-header block">Primary Line for Partner</label>
-                <p className="text-xs text-slate-600 italic -mt-1 font-sans">One Entry Per Line</p>
+                <p className="text-xs text-slate-600 italic -mt-1 font-sans">Primary Ads.txt Line(s) - One Entry Per Line</p>
                 <textarea 
                   value={primaryLines}
                   onChange={(e) => setPrimaryLines(e.target.value)}
                   placeholder="domain.com, ID, DIRECT, TAG"
                   className="w-full h-20 bg-slate-50 border border-slate-300 p-2.5 text-slate-900 font-mono text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors resize-none rounded-sm"
-                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="col-header block">ORTB Line(s) for Partner</label>
+                <p className="text-xs text-slate-600 italic -mt-1 font-sans">OpenRTB Ads.txt Line(s) - One Entry Per Line</p>
+                <textarea 
+                  value={ortbLines}
+                  onChange={(e) => setOrtbLines(e.target.value)}
+                  placeholder="domain.com, ID, DIRECT, TAG"
+                  className="w-full h-20 bg-slate-50 border border-slate-300 p-2.5 text-slate-900 font-mono text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors resize-none rounded-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="col-header block">All Lines for Partner</label>
-                <p className="text-xs text-slate-600 italic -mt-1 font-sans">Includes Primary & Secondary Lines.</p>
+                <p className="text-xs text-slate-600 italic -mt-1 font-sans">Includes Primary, ORTB & Secondary Lines.</p>
                 <textarea 
                   value={allLines}
                   onChange={(e) => setAllLines(e.target.value)}
                   placeholder="domain.com, ID, DIRECT, TAG&#10;domain.com, ID, RESELLER, TAG"
-                  className="w-full h-28 bg-slate-50 border border-slate-300 p-2.5 text-slate-900 font-mono text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors resize-none rounded-sm"
-                  required
+                  className="w-full h-24 bg-slate-50 border border-slate-300 p-2.5 text-slate-900 font-mono text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors resize-none rounded-sm"
                 />
               </div>
 
@@ -1483,15 +1646,25 @@ const PartnerManager: React.FC<{
             </div>
 
             {/* Search bar */}
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <div className="relative flex items-center">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
               <input 
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search partner by name or domain..."
-                className="w-full bg-slate-50 border border-slate-300 py-2.5 pl-10 pr-4 font-sans text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors rounded-sm"
+                className="w-full bg-slate-50 border border-slate-300 py-2.5 pl-10 pr-10 font-sans text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors rounded-sm"
               />
+              {searchQuery && (
+                <button 
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors p-1"
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1499,6 +1672,7 @@ const PartnerManager: React.FC<{
           <div className="space-y-5">
             {filteredPartners.map(partner => {
               const pList = getPartnerPrimaryLines(partner);
+              const oList = getPartnerOrtbLines(partner);
               const aList = getAllPartnerLines(partner);
               const isEditing = editingId === partner.id;
 
@@ -1515,9 +1689,12 @@ const PartnerManager: React.FC<{
                   <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
                     <div className="flex items-center gap-3">
                       <h3 className="font-extrabold text-xl tracking-tight text-slate-900 font-sans">{partner.name}</h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-sans font-extrabold px-2.5 py-0.5 bg-slate-900 text-white uppercase tracking-wider rounded">
                           {pList.length} Primary Line{pList.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-xs font-sans font-bold px-2.5 py-0.5 bg-purple-900 text-purple-100 uppercase tracking-wider rounded">
+                          {oList.length} ORTB Line{oList.length !== 1 ? 's' : ''}
                         </span>
                         <span className="text-xs font-sans font-bold px-2.5 py-0.5 bg-slate-100 text-slate-800 border border-slate-300 uppercase tracking-wider rounded">
                           {aList.length} Total Line{aList.length !== 1 ? 's' : ''}
@@ -1543,7 +1720,7 @@ const PartnerManager: React.FC<{
                     </div>
                   </div>
 
-                {/* Primary Lines Open View */}
+                {/* Priority Sequence 1: Primary Ads.txt Line(s) */}
                 <div className="space-y-1.5">
                   <span className="col-header block text-xs">Primary Ads.txt Line(s)</span>
                   {pList.length > 0 ? (
@@ -1560,7 +1737,24 @@ const PartnerManager: React.FC<{
                   )}
                 </div>
 
-                {/* All Associated Lines Open View */}
+                {/* Priority Sequence 2: ORTB Line(s) */}
+                <div className="space-y-1.5">
+                  <span className="col-header block text-xs">ORTB Line(s)</span>
+                  {oList.length > 0 ? (
+                    <div className="bg-purple-50/50 border border-purple-200 p-3 font-mono text-xs space-y-2 rounded">
+                      {oList.map((line, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5 text-purple-950 font-medium">
+                          <span className="text-purple-600 font-bold select-none w-6 pt-0.5 text-xs">#{idx + 1}</span>
+                          <code className="break-all font-mono text-xs text-purple-950">{line}</code>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-slate-500 font-sans">No ORTB lines configured.</p>
+                  )}
+                </div>
+
+                {/* Priority Sequence 3: All Configured Lines */}
                 <div className="space-y-1.5">
                   <span className="col-header block text-xs">All Configured Lines ({aList.length})</span>
                   {aList.length > 0 ? (
@@ -1581,9 +1775,20 @@ const PartnerManager: React.FC<{
           })}
 
           {filteredPartners.length === 0 && (
-            <div className="text-center py-12 border border-dashed border-slate-300 bg-white shadow-xs p-8 rounded-md space-y-2">
-              <p className="font-serif font-bold text-base uppercase tracking-wide text-slate-800">No Partners Match Your Search</p>
-              <p className="text-xs text-slate-600">Try searching for a different partner name or reset your search query.</p>
+            <div className="text-center py-12 border border-dashed border-slate-300 bg-white shadow-xs p-8 rounded-md space-y-3">
+              <p className="font-serif font-bold text-base uppercase tracking-wide text-slate-800">
+                No Partners Match "{searchQuery}"
+              </p>
+              <p className="text-xs text-slate-600">
+                No registered demand partner name or line matches your search query.
+              </p>
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white font-sans text-xs font-bold uppercase tracking-wider rounded-sm hover:bg-slate-800 transition-colors shadow-xs"
+              >
+                <X size={14} />
+                <span>Clear Search Filter</span>
+              </button>
             </div>
           )}
         </div>

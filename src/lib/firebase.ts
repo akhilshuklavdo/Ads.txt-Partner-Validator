@@ -44,6 +44,7 @@ export function subscribeToPartners(onPartnersUpdate: (partners: Partner[]) => v
         name: data.name || '',
         lines: data.lines || [],
         primaryLines: data.primaryLines,
+        ortbLines: data.ortbLines,
         secondaryLines: data.secondaryLines,
       });
     });
@@ -78,6 +79,7 @@ export async function seedDefaultPartners(): Promise<void> {
           name: partner.name,
           lines: partner.lines || [],
           primaryLines: partner.primaryLines || [],
+          ortbLines: partner.ortbLines || [],
           secondaryLines: partner.secondaryLines || [],
           updatedAt: new Date().toISOString()
         });
@@ -102,6 +104,7 @@ export async function addPartnerInFirestore(partner: Omit<Partner, 'id'> & { id?
     name: partner.name,
     lines: partner.lines || [],
     primaryLines: partner.primaryLines || [],
+    ortbLines: partner.ortbLines || [],
     secondaryLines: partner.secondaryLines || [],
     updatedAt: new Date().toISOString()
   });
@@ -121,6 +124,7 @@ export async function updatePartnerInFirestore(partnerId: string, updatedFields:
   if (updatedFields.name !== undefined) dataToUpdate.name = updatedFields.name;
   if (updatedFields.lines !== undefined) dataToUpdate.lines = updatedFields.lines;
   if (updatedFields.primaryLines !== undefined) dataToUpdate.primaryLines = updatedFields.primaryLines;
+  if (updatedFields.ortbLines !== undefined) dataToUpdate.ortbLines = updatedFields.ortbLines;
   if (updatedFields.secondaryLines !== undefined) dataToUpdate.secondaryLines = updatedFields.secondaryLines;
 
   await updateDoc(docRef, dataToUpdate);
