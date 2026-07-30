@@ -1009,7 +1009,7 @@ export default function App() {
 
       <footer className="border-t border-slate-200 p-6 bg-white mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
-          <p className="col-header">Ads.txt Validator v2.3</p>
+          <p className="col-header">Ads.txt Validator v2.4</p>
           <p className="font-sans text-xs font-bold text-slate-800 tracking-wide">
             Designed and Developed by Akhil Shukla
           </p>
