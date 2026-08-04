@@ -165,6 +165,66 @@ const CodeVerificationModal: React.FC<{
   );
 };
 
+type ToastNotification = {
+  id: string;
+  title: string;
+  message: string;
+  type?: 'success' | 'error' | 'info';
+};
+
+const ToastContainer: React.FC<{
+  toasts: ToastNotification[];
+  onClose: (id: string) => void;
+}> = ({ toasts, onClose }) => {
+  return (
+    <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none px-4 sm:px-0">
+      <AnimatePresence>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-lg shadow-xl border backdrop-blur-md ${
+              toast.type === 'error'
+                ? 'bg-slate-900/95 border-rose-500 text-white'
+                : toast.type === 'info'
+                ? 'bg-slate-900/95 border-sky-500 text-white'
+                : 'bg-slate-900/95 border-emerald-500 text-white'
+            }`}
+          >
+            <div className="shrink-0 mt-0.5">
+              {toast.type === 'error' ? (
+                <AlertCircle className="text-rose-400" size={20} />
+              ) : toast.type === 'info' ? (
+                <Info className="text-sky-400" size={20} />
+              ) : (
+                <CheckCircle2 className="text-emerald-400" size={20} />
+              )}
+            </div>
+            <div className="flex-1 space-y-1">
+              <h4 className="font-sans text-xs font-bold uppercase tracking-wider text-slate-100">
+                {toast.title}
+              </h4>
+              <p className="font-sans text-xs text-slate-300 leading-relaxed">
+                {toast.message}
+              </p>
+            </div>
+            <button
+              onClick={() => onClose(toast.id)}
+              className="text-slate-400 hover:text-white transition-colors p-1 rounded-sm shrink-0 cursor-pointer"
+              title="Close notification"
+            >
+              <X size={16} />
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export default function App() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [activeTab, setActiveTab] = useState<'check' | 'manage'>('check');
@@ -176,7 +236,20 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [hoveredHistoryItem, setHoveredHistoryItem] = useState<{ item: HistoryItem; index: number; top: number } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const historyScrollRef = useRef<HTMLDivElement>(null);
+
+  const showToast = (title: string, message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const id = crypto.randomUUID();
+    setToasts(prev => [...prev, { id, title, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
+
+  const handleRemoveToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Helper to filter out history older than 24 hours and limit to max 10
   const filterValidHistory = (items: HistoryItem[]): HistoryItem[] => {
@@ -288,8 +361,10 @@ export default function App() {
         secondaryLines,
         lines: mergedAllLines
       });
-    } catch (err) {
+      showToast('Partner Added', `Partner "${name}" has been registered successfully.`, 'success');
+    } catch (err: any) {
       console.error('Failed to add partner to Firestore:', err);
+      showToast('Error', err?.message || 'Failed to add partner.', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -299,8 +374,10 @@ export default function App() {
     try {
       setIsSyncing(true);
       await deletePartnerFromFirestore(id);
-    } catch (err) {
+      showToast('Partner Deleted', 'Partner was removed from the registry.', 'info');
+    } catch (err: any) {
       console.error('Failed to delete partner from Firestore:', err);
+      showToast('Error', err?.message || 'Failed to delete partner.', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -334,38 +411,42 @@ export default function App() {
         secondaryLines,
         lines: mergedAllLines
       });
-    } catch (err) {
+      showToast('Partner Updated', `Partner "${name}" updated successfully.`, 'success');
+    } catch (err: any) {
       console.error('Failed to update partner in Firestore:', err);
+      showToast('Error', err?.message || 'Failed to update partner.', 'error');
     } finally {
       setIsSyncing(false);
     }
   };
 
   const handleResetPartners = async () => {
-    if (window.confirm('Reset all demand partners data in Firestore back to original defaults?')) {
-      try {
-        setIsSyncing(true);
-        await resetPartnersToDefault();
-      } catch (err) {
-        console.error('Failed to reset partners in Firestore:', err);
-      } finally {
-        setIsSyncing(false);
-      }
+    try {
+      setIsSyncing(true);
+      await resetPartnersToDefault();
+      showToast('Default Partners Restored', 'Demand partners dataset has been restored to default configuration.', 'success');
+    } catch (err: any) {
+      console.error('Failed to reset partners in Firestore:', err);
+      showToast('Restore Failed', err?.message || 'Failed to restore default partners.', 'error');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
   const handleUpdateDefaultPartners = async () => {
-    if (window.confirm('Save the current partners list as the default dataset? "Restore Defaults" will revert to this updated list in the future.')) {
-      try {
-        setIsSyncing(true);
-        await saveCurrentPartnersAsDefault(partners);
-        alert('Successfully updated default partners list! "Restore Defaults" will now revert to this current configuration.');
-      } catch (err) {
-        console.error('Failed to update default partners:', err);
-        alert('Failed to update default partners list.');
-      } finally {
-        setIsSyncing(false);
-      }
+    try {
+      setIsSyncing(true);
+      await saveCurrentPartnersAsDefault(partners);
+      showToast(
+        'Default Partners Updated',
+        `Successfully saved current list of ${partners.length} partners as default dataset! "Restore Defaults" will now revert to this list.`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Failed to update default partners:', err);
+      showToast('Update Failed', err?.message || 'Failed to update default partners dataset.', 'error');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -681,6 +762,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      <ToastContainer toasts={toasts} onClose={handleRemoveToast} />
       {/* Header */}
       <header className="border-b border-slate-200 p-5 lg:px-10 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white/90 backdrop-blur-md sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-4">
@@ -1027,7 +1109,7 @@ export default function App() {
 
       <footer className="border-t border-slate-200 p-6 bg-white mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
-          <p className="col-header">Ads.txt Validator v2.4</p>
+          <p className="col-header">Ads.txt Validator v2.5</p>
           <p className="font-sans text-xs font-bold text-slate-800 tracking-wide">
             Designed and Developed by Akhil Shukla
           </p>
